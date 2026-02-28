@@ -19,7 +19,7 @@ jobs:
           node-version: "20"
           registry-url: "https://npm.pkg.github.com"
           scope: "@mentra-intelligence"
-      - run: npm ci
+      - run: npm install
       - run: npm run build
       - run: npm publish
         env:
