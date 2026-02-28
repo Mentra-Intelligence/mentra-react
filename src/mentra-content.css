@@ -1,0 +1,23 @@
+/**
+ * Mentra Content CSS — companion styles for contentHtml rendering.
+ * Handles image sizing and alignment from data-* attributes.
+ * ZERO visual opinions (no fonts, colors, spacing).
+ */
+
+img[data-size="small"]  { max-width: 25%; }
+img[data-size="medium"] { max-width: 50%; }
+img[data-size="large"]  { max-width: 75%; }
+img[data-size="xl"]     { max-width: 100%; }
+
+img[data-align="center"] { display: block; margin-left: auto; margin-right: auto; }
+img[data-align="left"]   { float: left; margin-right: 1em; }
+img[data-align="right"]  { float: right; margin-left: 1em; }
+
+figure { margin: 0; }
+figure:has(> img[data-size="small"])  { max-width: 25%; }
+figure:has(> img[data-size="medium"]) { max-width: 50%; }
+figure:has(> img[data-size="large"])  { max-width: 75%; }
+figure:has(> img[data-size="xl"])     { max-width: 100%; }
+figure:has(> img[data-align="center"]) { display: block; margin-left: auto; margin-right: auto; }
+figure:has(> img[data-align="left"])   { float: left; margin-right: 1em; }
+figure:has(> img[data-align="right"])  { float: right; margin-left: 1em; }
