@@ -19,7 +19,7 @@ const defaultNodes: Record<string, NodeRenderer> = {
   paragraph: ({ children }) => <p>{children}</p>,
   heading: ({ node, children }) => {
     const level = Math.min(Math.max(Number(node.attrs?.level ?? 1), 1), 6);
-    const Tag = `h${level}` as keyof JSX.IntrinsicElements;
+    const Tag = `h${level}` as any;
     return <Tag>{children}</Tag>;
   },
   bulletList:  ({ children }) => <ul>{children}</ul>,
