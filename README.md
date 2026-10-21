@@ -81,7 +81,9 @@ Render a published page from `GET /v1/pages/{slug}` with one component:
 import { MentraPage } from "@mentra-intelligence/react";
 import DOMPurify from "isomorphic-dompurify"; // plain `dompurify` has no `sanitize` in Node
 
-const page = await fetch(`${API}/v1/pages/home`, { headers }).then((r) => r.json());
+const res = await fetch(`${API}/v1/pages/home`, { headers });
+if (!res.ok) throw new Error(`GET /v1/pages/home failed: ${res.status}`); // 404: unknown or unpublished slug
+const page = await res.json();
 
 <MentraPage page={page} sanitizeHtml={(html) => DOMPurify.sanitize(html)} />;
 ```
@@ -108,7 +110,7 @@ const Hero: BlockComponent<BlockContentMap["hero"]> = ({ content, context }) => 
 | `jsonLd` | `true` | Render the page's `jsonLd` as `<script type="application/ld+json">`. |
 | `sanitizeHtml` | none | Sanitiser for `rich_text` HTML. Without one, `rich_text` renders as plain text. |
 | `resolveLink` | external URLs with a safe scheme | `href` for a link. Internal links carry a target id, so they render as text until you map them to your routes. Pages are fetched by slug: map a page id to its slug with `GET /v1/pages`, whose summaries carry both. |
-| `resolveItemHref` | none | `href` for a `dynamic_content` item. |
+| `resolveItemHref` | none | `href` for a `dynamic_content` item: a standalone article, or a Section node (with its `nodeTypeKey`) when the block's `source` is `section`. Gets `(item, block)`. |
 | `renderContextBound` | `false` | Render blocks the response marks `contextBound`. |
 | `contentProps` | `{}` | Overrides forwarded to `MentraContent` for article bodies. |
 | `theme` | `{}` | Colours, fonts and shape, exposed as CSS variables (`--mentra-color-primary`, `--mentra-font-heading`, `--mentra-radius`, …). |
