@@ -263,6 +263,13 @@ describe("MentraPage", () => {
     expect(out).toContain('class="mentra-block mentra-block-related-content" data-style="list"');
     expect(out).toContain('<a href="/a/s2">Other post</a>');
     expect(html(page([related([])]), { renderContextBound: true })).toBe('<div class="mentra-page"></div>');
+    // A Section node's siblings carry nodeTypeKey and no summary.
+    const node = related([{ id: "n2", nodeTypeKey: "lesson", title: "Next lesson", slug: "next" }]);
+    const nodeOut = html(page([node]), {
+      renderContextBound: true,
+      resolveItemHref: (it: { id: string; nodeTypeKey?: string }) => `/${it.nodeTypeKey}/${it.id}`,
+    });
+    expect(nodeOut).toContain('<a href="/lesson/n2">Next lesson</a>');
   });
 
   it("links dynamic_content items through resolveItemHref", () => {

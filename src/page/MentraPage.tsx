@@ -20,8 +20,9 @@ export interface MentraPageProps {
   jsonLd?: boolean;
   /**
    * Render blocks the response marks `contextBound` (`meta_info`,
-   * `context_navigation`, context `content_body`, mapped blocks). A
-   * standalone page has no item to bind them to, so the default is `false`.
+   * `context_navigation`, `related_content`, context `content_body`, mapped
+   * blocks). A standalone page has no item to bind them to, so the default
+   * is `false`.
    * A context-bound `columns` block renders either way; its children are
    * each checked.
    */
