@@ -2,8 +2,9 @@
  * Default components for every page block type, and their content types.
  *
  * The contract is Mentra's `docs/page-block-content-schema.md` (#3894).
- * Adding a block type is a change to this file only: add its content
- * interface, its default component, and one entry in `defaultBlocks`.
+ * Adding a block type: add its content interface, its default component,
+ * and one entry in `defaultBlocks` here; fields of its own in `resolved`
+ * go on `PageBlock` in `types.ts`.
  *
  * The defaults are unstyled semantic HTML with `mentra-block-*` class names.
  * Every one returns `null` rather than an empty shell when the fields the
@@ -13,7 +14,8 @@ import type { HTMLAttributeReferrerPolicy, ReactNode } from "react";
 import { MentraContent } from "../MentraContent";
 import type { TipTapNode } from "../types";
 import type {
-  BlockComponent, BlockProps, DynamicItem, LinkValue, PageRenderContext, ResolvedMedia,
+  BlockComponent, BlockProps, DynamicItem, FormResolved, LinkValue, PageBlock, PageRenderContext,
+  ResolvedMedia,
 } from "./types";
 import { htmlToText, str, strList, list } from "./util";
 
@@ -75,6 +77,19 @@ export interface MetaInfoContent { showAuthor?: boolean; showDate?: boolean; sho
 export interface ContextNavigationContent {
   showPrev?: boolean; showNext?: boolean; prevLabel?: string; nextLabel?: string;
 }
+/** Where a `form` block sends sign-ups. Public identifiers only, never a key. */
+export interface FormDestination {
+  type: "mailchimp" | "hubspot" | "webhook";
+  actionUrl?: string; portalId?: string; formGuid?: string; url?: string;
+}
+export interface FormContent {
+  heading?: string; description?: string; emailLabel?: string;
+  collectName?: boolean; nameLabel?: string; consentText?: string;
+  buttonText?: string; successMessage?: string;
+  /** Just `{type}` on a preview read; `null` when there is no valid destination. */
+  destination?: FormDestination | FormDestinationTypeOnly | null;
+}
+export interface FormDestinationTypeOnly { type: FormDestination["type"] }
 
 // ---------------------------------------------------------------- helpers
 
@@ -432,6 +447,76 @@ export function ContextNavigationBlock(_props: Props<ContextNavigationContent>) 
   return null;
 }
 
+// ---------------------------------------------------------------- form
+//
+// The visitor's browser posts straight to the tenant's service; Mentra never
+// receives the submission. The default is a native HTML form, so it works
+// without client JavaScript:
+// - a preview read (`resolved.preview`) draws the form with the button
+//   disabled and says submitting is off; it never gets the live URL;
+// - `webhook` posts the form to `submitUrl` (the page navigates to the
+//   endpoint's reply);
+// - `mailchimp` posts to `submitUrl` in a new tab (Mailchimp's own
+//   confirmation page);
+// - `hubspot` takes only a JSON body, which a native form can't send, so the
+//   default renders nothing on a live read: override `form` with a client
+//   component that calls `submitMentraForm` (see the README).
+
+/** `resolved`, when it has everything a form needs. */
+function formResolved(r: PageBlock["resolved"]): FormResolved | null {
+  if (!r || typeof r !== "object") return null;
+  const f = r.fieldNames;
+  if (!f || typeof f !== "object" || typeof f.email !== "string" || typeof f.name !== "string") return null;
+  if (typeof r.honeypotField !== "string" || typeof r.type !== "string") return null;
+  return r as FormResolved;
+}
+
+export function FormBlock({ block, content }: Props<FormContent>) {
+  const r = formResolved(block.resolved);
+  if (!r) return null;
+  // Anything but an explicit live read with an https URL is a preview.
+  const submitUrl = r.preview === false ? httpsUrl(r.submitUrl) : undefined;
+  if (submitUrl && r.encoding !== "form") return null;
+  const heading = str(content.heading);
+  const description = str(content.description);
+  const consent = str(content.consentText);
+  const consentName = typeof r.fieldNames.consent === "string" ? r.fieldNames.consent : undefined;
+  return (
+    <section className="mentra-block mentra-block-form">
+      <form
+        method="post"
+        action={submitUrl}
+        target={submitUrl && r.type === "mailchimp" ? "_blank" : undefined}
+      >
+        {heading && <h2>{heading}</h2>}
+        {description && <p>{description}</p>}
+        {content.collectName === true && (
+          <label>
+            <span>{str(content.nameLabel) ?? "Name"}</span>
+            <input type="text" name={r.fieldNames.name} autoComplete="name" />
+          </label>
+        )}
+        <label>
+          <span>{str(content.emailLabel) ?? "Email"}</span>
+          <input type="email" name={r.fieldNames.email} required autoComplete="email" />
+        </label>
+        {/* Bot trap: off-screen and hidden from assistive tech; people leave it empty. */}
+        <div aria-hidden="true" style={{ position: "absolute", left: "-10000px" }}>
+          <input type="text" name={r.honeypotField} tabIndex={-1} autoComplete="off" defaultValue="" />
+        </div>
+        {consent && (
+          <label>
+            <input type="checkbox" name={consentName} value={consentName ? "yes" : undefined} required />
+            <span>{consent}</span>
+          </label>
+        )}
+        <button type="submit" disabled={!submitUrl}>{str(content.buttonText) ?? "Subscribe"}</button>
+        {!submitUrl && <p className="mentra-form-note">Preview: submitting is off.</p>}
+      </form>
+    </section>
+  );
+}
+
 // ---------------------------------------------------------------- registry
 
 /** The default component for every block type in the #3894 contract. */
@@ -452,6 +537,7 @@ export const defaultBlocks = {
   content_body: ContentBodyBlock,
   meta_info: MetaInfoBlock,
   context_navigation: ContextNavigationBlock,
+  form: FormBlock,
 } satisfies Record<string, BlockComponent>;
 
 /** A block type this package knows. */
@@ -475,6 +561,7 @@ export interface BlockContentMap {
   content_body: ContentBodyContent;
   meta_info: MetaInfoContent;
   context_navigation: ContextNavigationContent;
+  form: FormContent;
 }
 
 /**

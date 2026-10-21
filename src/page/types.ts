@@ -69,9 +69,15 @@ export interface PageBlock<C = Record<string, unknown>> {
   /**
    * Added by `/v1` for data-backed blocks (`dynamic_content`, specific
    * `content_body`) and for `video` / `embed`, where it is the media to play
-   * or `null` when the stored URL fails Mentra's allowlist.
+   * or `null` when the stored URL fails Mentra's allowlist, and for `form`,
+   * where it is how to submit ({@link FormResolved}) or `null` when the block
+   * has no valid destination.
    */
-  resolved?: ({ items?: DynamicItem[]; item?: ResolvedContentItem | null } & Partial<ResolvedMedia>) | null;
+  resolved?: (
+    & { items?: DynamicItem[]; item?: ResolvedContentItem | null }
+    & Partial<ResolvedMedia>
+    & Partial<FormResolved>
+  ) | null;
 }
 
 /**
@@ -86,6 +92,26 @@ export interface ResolvedMedia {
   sandbox?: string;
   allow?: string;
   referrerPolicy?: string;
+}
+
+/**
+ * The `resolved` value of a `form` block: how the visitor's browser submits
+ * it, straight to the tenant's own service (Mentra never receives it).
+ */
+export interface FormResolved {
+  type: "mailchimp" | "hubspot" | "webhook";
+  method: "POST";
+  /** A draft or preview-token read: `submitUrl` is `null`; never submit. */
+  preview: boolean;
+  submitUrl: string | null;
+  /** `mailchimp` only: the JSONP variant of `submitUrl`. */
+  jsonpUrl?: string | null;
+  /** `form`: `application/x-www-form-urlencoded`; `json`: HubSpot's JSON body. */
+  encoding: "form" | "json";
+  /** Names to send each value under. `consent: null`: the service takes no consent field. */
+  fieldNames: { email: string; name: string; consent: string | null };
+  /** The hidden bot-trap input's name. */
+  honeypotField: string;
 }
 
 /** A `GET /v1/pages/{slug}` response. */

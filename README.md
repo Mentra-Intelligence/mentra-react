@@ -120,7 +120,7 @@ const Hero: BlockComponent<BlockContentMap["hero"]> = ({ content, context }) => 
 
 Block types: `hero` `dynamic_hero` `rich_text` `image` `video` `embed` `features_grid`
 `testimonials` `faq` `pricing` `cta` `columns` `dynamic_content`
-`content_body` `meta_info` `context_navigation`. A block whose type has no
+`content_body` `meta_info` `context_navigation` `form`. A block whose type has no
 component is skipped, so a page using a type newer than your package version
 still renders.
 
@@ -157,8 +157,98 @@ frame-src https://www.youtube-nocookie.com https://player.vimeo.com https://www.
 Mentra keeps this list as `FRAME_HOSTS` in `backend/app/libs/page_block_media.py`.
 Video files can be on any `https` host, so `media-src` needs `https:`.
 
-Adding a block type to the package is a one-file change: its content type,
-default component and registry entry all live in `src/page/blocks.tsx`.
+### Form blocks
+
+A `form` block is a newsletter sign-up whose submission goes from the
+visitor's browser straight to the tenant's own service: Mentra never
+receives or stores what a visitor types. `/v1/pages` puts how to submit in
+the block's `resolved` (`type`, `submitUrl`, `fieldNames`, `honeypotField`,
+`preview`); the block's `content` holds the labels and only public
+identifiers, never an API key.
+
+The default `FormBlock` is a native HTML form, so it needs no client script:
+
+- `webhook` posts to `resolved.submitUrl`, and the page navigates to the
+  endpoint's reply.
+- `mailchimp` posts to `resolved.submitUrl` in a new tab, where Mailchimp
+  shows its own confirmation.
+- `hubspot` takes only a JSON body, which a native form can't send, so the
+  default renders nothing on a live read. Override `form` (below).
+- A preview read (`resolved.preview: true`, from a draft or preview-token
+  request) draws the form with the button disabled and says submitting is
+  off; it never gets the live URL. So does any `resolved` without an
+  `https` `submitUrl`.
+- `resolved: null` (no destination, or one Mentra's checks refuse) renders
+  nothing.
+
+Every form carries a honeypot: a hidden input named `resolved.honeypotField`,
+off-screen in an `aria-hidden` wrapper with `tabIndex={-1}`. People leave it
+empty and many bots fill it. **A custom form must add one too**, and must
+send nothing when it is filled.
+
+To stay on the page and show `successMessage`, or to support HubSpot,
+override `form` with a client component that calls `submitMentraForm`. It
+posts a webhook form-encoded with `mode: "no-cors"` (so `"sent"` means the
+browser sent it; the reply can't be read), uses Mailchimp's JSONP endpoint
+(your `script-src` must allow the `list-manage.com` host), and posts HubSpot
+JSON. It throws on a preview read and returns `"skipped"` without sending
+when the honeypot is filled.
+
+```tsx
+"use client";
+import { useState } from "react";
+import { submitMentraForm, type BlockComponent, type BlockContentMap } from "@mentra-intelligence/react";
+
+export const SignupForm: BlockComponent<BlockContentMap["form"]> = ({ block, content }) => {
+  const r = block.resolved;
+  const [state, setState] = useState<"idle" | "sending" | "done" | "error">("idle");
+  if (!r?.fieldNames || !r.honeypotField) return null;
+  const live = r.preview === false;
+  return (
+    <form
+      onSubmit={async (e) => {
+        e.preventDefault();
+        const f = new FormData(e.currentTarget);
+        setState("sending");
+        try {
+          await submitMentraForm(r, {
+            email: String(f.get("email") ?? ""),
+            name: String(f.get("name") ?? ""),
+            consent: f.get("consent") === "on",
+            honeypot: String(f.get("hp") ?? ""),
+          });
+          setState("done");
+        } catch {
+          setState("error"); // the typed values stay in the inputs
+        }
+      }}
+    >
+      {content.heading && <h2>{content.heading}</h2>}
+      {content.collectName && <label>{content.nameLabel || "Name"} <input name="name" autoComplete="name" /></label>}
+      <label>{content.emailLabel || "Email"} <input name="email" type="email" required autoComplete="email" /></label>
+      <div aria-hidden="true" style={{ position: "absolute", left: "-10000px" }}>
+        <input name="hp" tabIndex={-1} autoComplete="off" defaultValue="" />
+      </div>
+      {content.consentText && <label><input name="consent" type="checkbox" required /> {content.consentText}</label>}
+      <button type="submit" disabled={!live || state === "sending"}>{content.buttonText || "Subscribe"}</button>
+      {!live && <p>Preview: submitting is off.</p>}
+      <p role="status">
+        {state === "done" && (content.successMessage || "Thanks for subscribing!")}
+        {state === "error" && "That didn't go through. Please try again."}
+      </p>
+    </form>
+  );
+};
+
+// <MentraPage page={page} blocks={{ form: SignupForm }} />
+```
+
+If your site sends a Content-Security-Policy, the destination host must be
+allowed in `form-action` (native form) or `connect-src` (`submitMentraForm`).
+
+A block type's content type, default component and registry entry live in
+`src/page/blocks.tsx`; a type whose `resolved` object has fields of its own
+(like `form`) also adds them to `PageBlock` in `src/page/types.ts`.
 
 ## Supported Nodes
 
