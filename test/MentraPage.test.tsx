@@ -16,12 +16,24 @@ const html = (p: PageResponse, props: Record<string, unknown> = {}) =>
 
 const ext = (url: string) => ({ type: "external", url });
 
+/** `resolved` as `/v1/pages` returns it for a YouTube URL (`backend/app/libs/page_block_media.py`). */
+const YT = {
+  provider: "youtube",
+  embedUrl: "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ",
+  sandbox: "allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox",
+  allow: "encrypted-media; picture-in-picture; fullscreen",
+  referrerPolicy: "strict-origin-when-cross-origin",
+};
+const MP4 = { provider: "file", fileUrl: "https://cdn.test/clip.mp4" };
+
 /** One valid block of every contract type, with its expected default output. */
 const SAMPLES: Record<string, { block: PageBlock; expect: string }> = {
   hero: { block: block("hero", { heading: "Welcome", subheading: "Sub", ctaText: "Go", ctaLink: ext("https://x.test") }), expect: "<h1>Welcome</h1>" },
   dynamic_hero: { block: block("dynamic_hero", { heading: "Big", primaryCtaText: "Start", primaryCtaLink: ext("/start") }), expect: "<h1>Big</h1>" },
   rich_text: { block: block("rich_text", { html: "<p>Hello <b>world</b></p>" }), expect: "Hello world" },
   image: { block: block("image", { url: "https://cdn.test/a.png", alt: "A" }), expect: 'src="https://cdn.test/a.png"' },
+  video: { block: block("video", { url: "https://cdn.test/clip.mp4" }, { resolved: MP4 }), expect: '<video src="https://cdn.test/clip.mp4"' },
+  embed: { block: block("embed", { url: "https://youtu.be/dQw4w9WgXcQ" }, { resolved: YT }), expect: `src="${YT.embedUrl}"` },
   features_grid: { block: block("features_grid", { title: "F", features: [{ title: "Fast" }] }), expect: "<h3>Fast</h3>" },
   testimonials: { block: block("testimonials", { items: [{ quote: "Great", name: "Kim", role: "CEO" }] }), expect: "Kim, CEO" },
   faq: { block: block("faq", { items: [{ question: "Why?", answer: "Because." }] }), expect: "<summary>Why?</summary>" },
@@ -151,6 +163,73 @@ describe("MentraPage", () => {
       sanitizeHtml: (h: string) => h.replace(/<script.*?<\/script>/g, ""),
     });
     expect(out).toContain("<p><b>Hi</b></p>");
+  });
+
+  describe("video and embed", () => {
+    const attrs = (out: string) => {
+      const tag = out.match(/<iframe[^>]*>/)?.[0] ?? "";
+      return Object.fromEntries([...tag.matchAll(/([a-zA-Z]+)="([^"]*)"/g)].map((m) => [m[1], m[2]]));
+    };
+
+    it("frames a provider with exactly the resolved src, sandbox, allow and referrerPolicy", () => {
+      for (const type of ["video", "embed"]) {
+        const a = attrs(html(page([block(type, { url: "https://evil.test/x", title: "Clip" }, { resolved: YT })])));
+        expect(a.src).toBe(YT.embedUrl);
+        expect(a.sandbox).toBe(YT.sandbox);
+        expect(a.allow).toBe(YT.allow);
+        expect(a.referrerPolicy).toBe(YT.referrerPolicy);
+        expect(a.title).toBe("Clip");
+        expect(a.loading).toBe("lazy");
+      }
+    });
+
+    it("never frames content.url", () => {
+      const out = html(page([block("embed", { url: "https://evil.test/x" }, { resolved: { ...YT, embedUrl: undefined } })]));
+      expect(out).not.toContain("evil.test");
+      expect(out).not.toContain("<iframe");
+    });
+
+    it("renders no frame without a sandbox", () => {
+      expect(html(page([block("embed", { url: "u" }, { resolved: { ...YT, sandbox: undefined } })]))).not.toContain("<iframe");
+    });
+
+    it("falls back to a generic title and maps the aspect ratio", () => {
+      const v = attrs(html(page([block("video", { url: "u" }, { resolved: YT })])));
+      expect(v.title).toBe("Video");
+      expect(v.style).toBe("width:100%;border:0;aspect-ratio:16 / 9");
+      const e = attrs(html(page([block("embed", { url: "u", aspectRatio: "9:16" }, { resolved: YT })])));
+      expect(e.title).toBe("Embedded content");
+      expect(e.style).toContain("aspect-ratio:9 / 16");
+      expect(attrs(html(page([block("embed", { url: "u", aspectRatio: "2:1" }, { resolved: YT })]))).style).toContain("aspect-ratio:16 / 9");
+    });
+
+    it("plays an .mp4 with <video>, not a frame", () => {
+      const out = html(page([block("video", { url: MP4.fileUrl }, { resolved: MP4 })]));
+      expect(out).toContain('<video src="https://cdn.test/clip.mp4" controls=""');
+      expect(out).not.toContain("<iframe");
+      expect(out).not.toContain("autoPlay");
+      expect(out).not.toContain("<track");
+    });
+
+    it("adds poster, captions, autoplay (muted) and loop to a video file", () => {
+      const out = html(page([block("video", {
+        url: MP4.fileUrl, title: "Demo", poster: "https://cdn.test/p.jpg", captionsUrl: "https://cdn.test/c.vtt", autoplay: true, loop: true,
+      }, { resolved: MP4 })]));
+      expect(out).toContain('poster="https://cdn.test/p.jpg"');
+      expect(out).toContain('muted="" autoPlay="" playsInline="" loop=""');
+      expect(out).toContain('aria-label="Demo"');
+      expect(out).toContain('<track kind="captions" src="https://cdn.test/c.vtt"');
+      // No CORS mode, so a video host without CORS headers still plays.
+      expect(out).not.toMatch(/crossorigin/i);
+    });
+
+    it("renders nothing for resolved: null, without throwing", () => {
+      for (const type of ["video", "embed"]) {
+        for (const resolved of [null, undefined, { provider: "file" }]) {
+          expect(html(page([block(type, { url: "https://youtu.be/x" }, { resolved } as never)]))).toBe('<div class="mentra-page"></div>');
+        }
+      }
+    });
   });
 
   it("forwards contentProps to the article body", () => {
