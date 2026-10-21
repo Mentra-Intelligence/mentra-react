@@ -9,7 +9,8 @@
  *   endpoint that sends no CORS headers; the reply can't be read, so `"sent"`
  *   means the browser sent it.
  * - `mailchimp`: Mailchimp's JSONP endpoint, which answers success or error.
- *   Your `script-src` CSP must allow the `list-manage.com` host.
+ *   Your `script-src` CSP must allow the `list-manage.com` host; any other
+ *   host is refused, since the reply runs as script.
  * - `hubspot`: a JSON POST; a non-2xx reply throws.
  */
 import type { FormResolved } from "./types";
@@ -37,6 +38,22 @@ function liveUrl(value: unknown): string {
     throw new Error("This form has no live destination.");
   }
   return value;
+}
+
+/**
+ * `jsonpUrl` runs as script in the page, so it must be Mailchimp's own host,
+ * not just any https URL.
+ */
+function mailchimpUrl(value: unknown): string {
+  const url = liveUrl(value);
+  let host = "";
+  try {
+    host = new URL(url).hostname.toLowerCase();
+  } catch {
+    // falls through to the refusal below
+  }
+  if (!host.endsWith(".list-manage.com")) throw new Error("This form has no live destination.");
+  return url;
 }
 
 /** Load Mailchimp's JSONP reply; resolves with `{result, msg}`. */
@@ -100,7 +117,7 @@ export async function submitMentraForm(
   if (resolved.honeypotField) params.set(resolved.honeypotField, "");
 
   if (resolved.type === "mailchimp") {
-    const reply = await mailchimpJsonp(`${liveUrl(resolved.jsonpUrl)}&${params}`);
+    const reply = await mailchimpJsonp(`${mailchimpUrl(resolved.jsonpUrl)}&${params}`);
     if (reply.result !== "success") throw new Error(reply.msg || "Mailchimp refused the submission.");
     return "sent";
   }
