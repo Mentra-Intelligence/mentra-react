@@ -118,11 +118,44 @@ const Hero: BlockComponent<BlockContentMap["hero"]> = ({ content, context }) => 
 | `contentProps` | `{}` | Overrides forwarded to `MentraContent` for article bodies. |
 | `theme` | `{}` | Colours, fonts and shape, exposed as CSS variables (`--mentra-color-primary`, `--mentra-font-heading`, `--mentra-radius`, …). |
 
-Block types: `hero` `dynamic_hero` `rich_text` `image` `features_grid`
+Block types: `hero` `dynamic_hero` `rich_text` `image` `video` `embed` `features_grid`
 `testimonials` `faq` `pricing` `cta` `columns` `dynamic_content`
 `content_body` `meta_info` `context_navigation`. A block whose type has no
 component is skipped, so a page using a type newer than your package version
 still renders.
+
+### Video and embed blocks
+
+`video` and `embed` render only what `/v1/pages` returns in the block's
+`resolved`, which Mentra builds after checking the URL against its allowlist:
+
+- A provider (YouTube, Vimeo, Loom, Spotify, Google Maps) renders an
+  `<iframe>` whose `src` is `resolved.embedUrl` and whose `sandbox`, `allow`
+  and `referrerPolicy` are copied from `resolved` unchanged, with
+  `loading="lazy"`. The frame is never built from `content.url`. An `embed`
+  takes its shape from `aspectRatio` (`16:9`, the default, `4:3`, `1:1` or
+  `9:16`); a `video` frame is 16:9.
+- A video file (`resolved.provider === "file"`) renders `<video controls>`
+  from `resolved.fileUrl`, with `poster`, a captions `<track>`, and
+  `muted autoPlay playsInline` / `loop` when the block asks for them.
+- `resolved: null` (the stored URL failed the check) renders nothing.
+
+The default `<video>` sets no `crossOrigin`, because CORS mode would stop the
+video loading from a host that sends no CORS headers. A captions file on
+another origin therefore isn't loaded, and the video plays without captions.
+To load cross-origin captions, override `video` with a client component that
+sets `crossOrigin="anonymous"` and drops it on the video's `error` event, as
+Mentra's own `frontend/src/components/VideoBlock.tsx` does.
+
+If your site sends a Content-Security-Policy, allow the player hosts in
+`frame-src`:
+
+```
+frame-src https://www.youtube-nocookie.com https://player.vimeo.com https://www.loom.com https://open.spotify.com https://www.google.com
+```
+
+Mentra keeps this list as `FRAME_HOSTS` in `backend/app/libs/page_block_media.py`.
+Video files can be on any `https` host, so `media-src` needs `https:`.
 
 Adding a block type to the package is a one-file change: its content type,
 default component and registry entry all live in `src/page/blocks.tsx`.

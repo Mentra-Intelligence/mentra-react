@@ -9,11 +9,11 @@
  * Every one returns `null` rather than an empty shell when the fields the
  * contract marks render-required are missing, and skips `null` list entries.
  */
-import type { ReactNode } from "react";
+import type { HTMLAttributeReferrerPolicy, ReactNode } from "react";
 import { MentraContent } from "../MentraContent";
 import type { TipTapNode } from "../types";
 import type {
-  BlockComponent, BlockProps, DynamicItem, LinkValue, PageRenderContext,
+  BlockComponent, BlockProps, DynamicItem, LinkValue, PageRenderContext, ResolvedMedia,
 } from "./types";
 import { htmlToText, str, strList, list } from "./util";
 
@@ -43,6 +43,18 @@ export interface DynamicHeroContent {
 }
 export interface RichTextContent { html: string }
 export interface ImageContent { url: string; alt?: string }
+export interface VideoContent {
+  url: string; title?: string; poster?: string | null; captionsUrl?: string | null;
+  /** Hint: start playing on load, always muted. */
+  autoplay?: boolean;
+  /** Hint: restart when it ends. */
+  loop?: boolean;
+}
+export interface EmbedContent {
+  url: string; title?: string;
+  /** Hint: frame shape, default `16:9`. */
+  aspectRatio?: "16:9" | "4:3" | "1:1" | "9:16";
+}
 export interface FeaturesGridContent { title?: string; features: (FeatureItem | null)[] }
 export interface TestimonialsContent { title?: string; items: (TestimonialItem | null)[] }
 export interface FaqContent { title?: string; items: (FaqItem | null)[] }
@@ -170,6 +182,90 @@ export function ImageBlock({ content, context }: Props<ImageContent>) {
       <img src={src} alt={str(content.alt) ?? ""} />
     </figure>
   );
+}
+
+// Media (`video`, `embed`). Mentra checks the URL against its allowlist and
+// returns what to play in `block.resolved`; these components use only that.
+// A frame's `src` is never built from `content.url`, and its `sandbox`,
+// `allow` and `referrerPolicy` are copied from `resolved` unchanged.
+
+const ASPECT_RATIOS: Record<string, string> = {
+  "16:9": "16 / 9", "4:3": "4 / 3", "1:1": "1 / 1", "9:16": "9 / 16",
+};
+
+function httpsUrl(value: unknown): string | undefined {
+  const s = str(value);
+  return s && /^https:\/\//i.test(s) ? s : undefined;
+}
+
+/**
+ * The provider frame for `resolved`, or `null` when it can't be framed safely.
+ * A plain function, not a component, so the block can return `null` itself
+ * instead of an empty `<figure>`.
+ */
+function mediaFrame(r: Partial<ResolvedMedia>, title: string, aspectRatio: string): ReactNode {
+  const src = httpsUrl(r.embedUrl);
+  // Without a sandbox string the frame would get full rights, so don't render it.
+  if (!src || typeof r.sandbox !== "string") return null;
+  return (
+    <iframe
+      src={src}
+      title={title}
+      sandbox={r.sandbox}
+      allow={typeof r.allow === "string" ? r.allow : undefined}
+      referrerPolicy={typeof r.referrerPolicy === "string" ? (r.referrerPolicy as HTMLAttributeReferrerPolicy) : undefined}
+      loading="lazy"
+      style={{ width: "100%", border: 0, aspectRatio }}
+    />
+  );
+}
+
+export function VideoBlock({ block, content }: Props<VideoContent>) {
+  const r = block.resolved;
+  if (!r || typeof r !== "object") return null;
+  const title = str(content.title);
+  let body: ReactNode;
+  if (r.provider === "file") {
+    const src = httpsUrl(r.fileUrl);
+    if (!src) return null;
+    const autoplay = content.autoplay === true;
+    // No `crossOrigin`: it would put the video request in CORS mode, and a
+    // host without CORS headers would then stop the video loading. So the
+    // track loads when the browser allows it without CORS (same origin) and
+    // otherwise the video plays without captions.
+    const captions = httpsUrl(content.captionsUrl);
+    body = (
+      <video
+        src={src}
+        controls
+        poster={httpsUrl(content.poster)}
+        muted={autoplay || undefined}
+        autoPlay={autoplay || undefined}
+        playsInline={autoplay || undefined}
+        loop={content.loop === true || undefined}
+        aria-label={title}
+        style={{ width: "100%" }}
+      >
+        {captions && <track kind="captions" src={captions} label="Captions" default />}
+      </video>
+    );
+  } else {
+    body = mediaFrame(r, title ?? "Video", ASPECT_RATIOS["16:9"]);
+    if (!body) return null;
+  }
+  return <figure className="mentra-block mentra-block-video">{body}</figure>;
+}
+
+export function EmbedBlock({ block, content }: Props<EmbedContent>) {
+  const r = block.resolved;
+  if (!r || typeof r !== "object" || r.provider === "file") return null;
+  const key = str(content.aspectRatio);
+  const ratio = key && Object.prototype.hasOwnProperty.call(ASPECT_RATIOS, key)
+    ? ASPECT_RATIOS[key]
+    : ASPECT_RATIOS["16:9"];
+  const frame = mediaFrame(r, str(content.title) ?? "Embedded content", ratio);
+  if (!frame) return null;
+  return <figure className="mentra-block mentra-block-embed">{frame}</figure>;
 }
 
 export function FeaturesGridBlock({ content }: Props<FeaturesGridContent>) {
@@ -344,6 +440,8 @@ export const defaultBlocks = {
   dynamic_hero: DynamicHeroBlock,
   rich_text: RichTextBlock,
   image: ImageBlock,
+  video: VideoBlock,
+  embed: EmbedBlock,
   features_grid: FeaturesGridBlock,
   testimonials: TestimonialsBlock,
   faq: FaqBlock,
@@ -365,6 +463,8 @@ export interface BlockContentMap {
   dynamic_hero: DynamicHeroContent;
   rich_text: RichTextContent;
   image: ImageContent;
+  video: VideoContent;
+  embed: EmbedContent;
   features_grid: FeaturesGridContent;
   testimonials: TestimonialsContent;
   faq: FaqContent;

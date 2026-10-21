@@ -66,8 +66,26 @@ export interface PageBlock<C = Record<string, unknown>> {
   dynamicMappings?: Record<string, string> | null;
   /** Set on blocks that need the item a page is rendered for (`meta_info`, …). */
   contextBound?: boolean;
-  /** Added by `/v1` for data-backed blocks (`dynamic_content`, specific `content_body`). */
-  resolved?: { items?: DynamicItem[]; item?: ResolvedContentItem | null };
+  /**
+   * Added by `/v1` for data-backed blocks (`dynamic_content`, specific
+   * `content_body`) and for `video` / `embed`, where it is the media to play
+   * or `null` when the stored URL fails Mentra's allowlist.
+   */
+  resolved?: ({ items?: DynamicItem[]; item?: ResolvedContentItem | null } & Partial<ResolvedMedia>) | null;
+}
+
+/**
+ * The `resolved` value of a `video` or `embed` block. A provider player is
+ * framed from `embedUrl` with exactly the given `sandbox`, `allow` and
+ * `referrerPolicy`; a video file (`provider: "file"`) is played from `fileUrl`.
+ */
+export interface ResolvedMedia {
+  provider: string;
+  embedUrl?: string;
+  fileUrl?: string;
+  sandbox?: string;
+  allow?: string;
+  referrerPolicy?: string;
 }
 
 /** A `GET /v1/pages/{slug}` response. */
