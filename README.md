@@ -113,14 +113,14 @@ const Hero: BlockComponent<BlockContentMap["hero"]> = ({ content, context }) => 
 | `jsonLd` | `true` | Render the page's `jsonLd` as `<script type="application/ld+json">`. |
 | `sanitizeHtml` | none | Sanitiser for `rich_text` HTML. Without one, `rich_text` renders as plain text. |
 | `resolveLink` | external URLs with a safe scheme | `href` for a link. Internal links carry a target id, so they render as text until you map them to your routes. Pages are fetched by slug: map a page id to its slug with `GET /v1/pages`, whose summaries carry both. |
-| `resolveItemHref` | none | `href` for a `dynamic_content` item: a standalone article, or a Section node (with its `nodeTypeKey`) when the block's `source` is `section`. Gets `(item, block)`. |
+| `resolveItemHref` | none | `href` for a `dynamic_content` or `related_content` item: a standalone article, or a Section node (with its `nodeTypeKey`) when the block's `source` is `section` or a `related_content` block lists a node's siblings. Gets `(item, block)`. |
 | `renderContextBound` | `false` | Render blocks the response marks `contextBound`. |
 | `contentProps` | `{}` | Overrides forwarded to `MentraContent` for article bodies. |
 | `theme` | `{}` | Colours, fonts and shape, exposed as CSS variables (`--mentra-color-primary`, `--mentra-font-heading`, `--mentra-radius`, …). |
 
 Block types: `hero` `dynamic_hero` `rich_text` `image` `video` `embed` `features_grid`
 `testimonials` `faq` `pricing` `cta` `columns` `dynamic_content`
-`content_body` `meta_info` `context_navigation`. A block whose type has no
+`content_body` `meta_info` `context_navigation` `related_content`. A block whose type has no
 component is skipped, so a page using a type newer than your package version
 still renders.
 

@@ -75,6 +75,9 @@ export interface MetaInfoContent { showAuthor?: boolean; showDate?: boolean; sho
 export interface ContextNavigationContent {
   showPrev?: boolean; showNext?: boolean; prevLabel?: string; nextLabel?: string;
 }
+export interface RelatedContentContent {
+  title?: string; limit?: number; style?: "grid" | "list" | "cards";
+}
 
 // ---------------------------------------------------------------- helpers
 
@@ -381,29 +384,53 @@ export function ColumnsBlock({ content, context }: Props<ColumnsContent>) {
   );
 }
 
-export function DynamicContentBlock({ block, content, context }: Props<DynamicContentContent>) {
+/** The item list `dynamic_content` and `related_content` share. */
+function ItemList({ block, title, style, context, className }: {
+  block: Props<unknown>["block"]; title: unknown; style: unknown;
+  context: PageRenderContext; className: string;
+}) {
   const items = list<DynamicItem>(block.resolved?.items).filter((it) => str(it.title));
   if (!items.length) return null;
-  const style = str(content.style) ?? "grid";
+  const layout = str(style) ?? "grid";
   return (
-    <section className="mentra-block mentra-block-dynamic-content" data-style={style}>
-      <Title text={str(content.title)} />
+    <section className={`mentra-block ${className}`} data-style={layout}>
+      <Title text={str(title)} />
       <ul>
         {items.map((item, i) => {
           const href = context.resolveItemHref(item, block);
           const cover = context.resolveImage(str(item.coverImageUrl));
           const summary = str(item.summary);
-          const title: ReactNode = href ? <a href={href}>{str(item.title)}</a> : str(item.title);
+          const itemTitle: ReactNode = href ? <a href={href}>{str(item.title)}</a> : str(item.title);
           return (
             <li key={str(item.id) ?? i}>
               {cover && <img src={cover} alt="" />}
-              <h3>{title}</h3>
+              <h3>{itemTitle}</h3>
               {summary && <p>{summary}</p>}
             </li>
           );
         })}
       </ul>
     </section>
+  );
+}
+
+export function DynamicContentBlock({ block, content, context }: Props<DynamicContentContent>) {
+  return (
+    <ItemList block={block} title={content.title} style={content.style} context={context}
+      className="mentra-block-dynamic-content" />
+  );
+}
+
+/**
+ * Other items for the article a template is laid out for (#3958): `/v1`
+ * fills `resolved.items` when the article is read with `include=layout`.
+ * The block is context-bound, so it renders only with `renderContextBound`,
+ * and renders nothing when there are no items.
+ */
+export function RelatedContentBlock({ block, content, context }: Props<RelatedContentContent>) {
+  return (
+    <ItemList block={block} title={content.title} style={content.style} context={context}
+      className="mentra-block-related-content" />
   );
 }
 
@@ -452,6 +479,7 @@ export const defaultBlocks = {
   content_body: ContentBodyBlock,
   meta_info: MetaInfoBlock,
   context_navigation: ContextNavigationBlock,
+  related_content: RelatedContentBlock,
 } satisfies Record<string, BlockComponent>;
 
 /** A block type this package knows. */
@@ -475,6 +503,7 @@ export interface BlockContentMap {
   content_body: ContentBodyContent;
   meta_info: MetaInfoContent;
   context_navigation: ContextNavigationContent;
+  related_content: RelatedContentContent;
 }
 
 /**
