@@ -22,6 +22,8 @@ export interface MentraPageProps {
    * Render blocks the response marks `contextBound` (`meta_info`,
    * `context_navigation`, context `content_body`, mapped blocks). A
    * standalone page has no item to bind them to, so the default is `false`.
+   * A context-bound `columns` block renders either way; its children are
+   * each checked.
    */
   renderContextBound?: boolean;
   /**
@@ -104,7 +106,9 @@ export function MentraPage(props: MentraPageProps) {
     if (!Array.isArray(blocks)) return null;
     return blocks.map((block, i) => {
       if (!isBlock(block)) return null;
-      if (block.contextBound && !renderContextBound) return null;
+      // A context-bound `columns` block still renders: /v1 resolves and
+      // marks its children individually, so each child is judged on its own.
+      if (block.contextBound && !renderContextBound && block.type !== "columns") return null;
       const Component = Object.prototype.hasOwnProperty.call(registry, block.type)
         ? registry[block.type]
         : undefined;

@@ -96,6 +96,16 @@ describe("MentraPage", () => {
     expect(html(page([bound]), { renderContextBound: true })).toContain("Bound");
   });
 
+  it("still renders a context-bound columns block, judging each child", () => {
+    const cols = block("columns", { columns: [{ blocks: [
+      block("hero", { heading: "Free" }),
+      block("hero", { heading: "Bound child" }, { contextBound: true }),
+    ] }] }, { contextBound: true, dynamicMappings: { x: "y" } });
+    const out = html(page([cols]));
+    expect(out).toContain("Free");
+    expect(out).not.toContain("Bound child");
+  });
+
   it("renders JSON-LD with < escaped, and can opt out", () => {
     const ld = [{ "@context": "https://schema.org", "@type": "FAQPage", name: "</script><script>alert(1)</script>" }];
     const out = html(page([], { jsonLd: ld }));
