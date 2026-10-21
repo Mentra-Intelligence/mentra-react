@@ -13,7 +13,7 @@ import type { HTMLAttributeReferrerPolicy, ReactNode } from "react";
 import { MentraContent } from "../MentraContent";
 import type { TipTapNode } from "../types";
 import type {
-  BlockComponent, BlockProps, DynamicItem, LinkValue, PageBlock, PageRenderContext,
+  BlockComponent, BlockProps, DynamicItem, LinkValue, PageRenderContext, ResolvedMedia,
 } from "./types";
 import { htmlToText, str, strList, list } from "./util";
 
@@ -198,12 +198,15 @@ function httpsUrl(value: unknown): string | undefined {
   return s && /^https:\/\//i.test(s) ? s : undefined;
 }
 
-/** The provider frame for `resolved`, or `null` when it can't be framed safely. */
-function MediaFrame({ block, title, aspectRatio }: { block: PageBlock<unknown>; title: string; aspectRatio: string }) {
-  const r = block.resolved;
-  const src = httpsUrl(r?.embedUrl);
+/**
+ * The provider frame for `resolved`, or `null` when it can't be framed safely.
+ * A plain function, not a component, so the block can return `null` itself
+ * instead of an empty `<figure>`.
+ */
+function mediaFrame(r: Partial<ResolvedMedia>, title: string, aspectRatio: string): ReactNode {
+  const src = httpsUrl(r.embedUrl);
   // Without a sandbox string the frame would get full rights, so don't render it.
-  if (!r || !src || typeof r.sandbox !== "string") return null;
+  if (!src || typeof r.sandbox !== "string") return null;
   return (
     <iframe
       src={src}
@@ -247,7 +250,8 @@ export function VideoBlock({ block, content }: Props<VideoContent>) {
       </video>
     );
   } else {
-    body = <MediaFrame block={block} title={title ?? "Video"} aspectRatio="16 / 9" />;
+    body = mediaFrame(r, title ?? "Video", ASPECT_RATIOS["16:9"]);
+    if (!body) return null;
   }
   return <figure className="mentra-block mentra-block-video">{body}</figure>;
 }
@@ -255,8 +259,12 @@ export function VideoBlock({ block, content }: Props<VideoContent>) {
 export function EmbedBlock({ block, content }: Props<EmbedContent>) {
   const r = block.resolved;
   if (!r || typeof r !== "object" || r.provider === "file") return null;
-  const ratio = ASPECT_RATIOS[str(content.aspectRatio) ?? ""] ?? ASPECT_RATIOS["16:9"];
-  const frame = <MediaFrame block={block} title={str(content.title) ?? "Embedded content"} aspectRatio={ratio} />;
+  const key = str(content.aspectRatio);
+  const ratio = key && Object.prototype.hasOwnProperty.call(ASPECT_RATIOS, key)
+    ? ASPECT_RATIOS[key]
+    : ASPECT_RATIOS["16:9"];
+  const frame = mediaFrame(r, str(content.title) ?? "Embedded content", ratio);
+  if (!frame) return null;
   return <figure className="mentra-block mentra-block-embed">{frame}</figure>;
 }
 

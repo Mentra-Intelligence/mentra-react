@@ -189,6 +189,20 @@ describe("MentraPage", () => {
       expect(out).not.toContain("<iframe");
     });
 
+    it("renders no empty figure when nothing can be played", () => {
+      const out = html(page([
+        block("video", { url: "u" }, { resolved: { provider: "youtube" } }),
+        block("embed", { url: "u" }, { resolved: { ...YT, sandbox: undefined } }),
+      ]));
+      expect(out).not.toContain("<figure");
+    });
+
+    it("falls back to 16:9 for an aspect ratio naming an inherited key", () => {
+      const out = html(page([block("embed", { url: "u", aspectRatio: "constructor" }, { resolved: YT })]));
+      expect(out).toContain("aspect-ratio:16 / 9");
+      expect(out).not.toContain("native code");
+    });
+
     it("renders no frame without a sandbox", () => {
       expect(html(page([block("embed", { url: "u" }, { resolved: { ...YT, sandbox: undefined } })]))).not.toContain("<iframe");
     });
