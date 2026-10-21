@@ -10,10 +10,15 @@ Renders TipTap/ProseMirror JSON documents returned by the Mentra Public API — 
 npm install @mentra-intelligence/react
 ```
 
-> Add to `.npmrc`:
-> ```
-> @mentra-intelligence:registry=https://npm.pkg.github.com
-> ```
+GitHub Packages needs a token to install any package, public ones included.
+Create a personal access token (classic) with the `read:packages` scope, export
+it as `NODE_AUTH_TOKEN` (locally, and in CI from a secret), and add to your
+project's `.npmrc`:
+
+```
+@mentra-intelligence:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
+```
 
 ## Quick Start
 
@@ -71,7 +76,7 @@ Render a published page from `GET /v1/pages/{slug}` with one component:
 
 ```tsx
 import { MentraPage } from "@mentra-intelligence/react";
-import DOMPurify from "dompurify";
+import DOMPurify from "isomorphic-dompurify"; // plain `dompurify` has no `sanitize` in Node
 
 const page = await fetch(`${API}/v1/pages/home`, { headers }).then((r) => r.json());
 
