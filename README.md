@@ -10,6 +10,9 @@ Renders TipTap/ProseMirror JSON documents returned by the Mentra Public API — 
 npm install @mentra-intelligence/react
 ```
 
+The `MentraPage` example below also uses `isomorphic-dompurify`
+(`npm install isomorphic-dompurify`), or any sanitiser of your own.
+
 GitHub Packages needs a token to install any package, public ones included.
 Create a personal access token (classic) with the `read:packages` scope, export
 it as `NODE_AUTH_TOKEN` (locally, and in CI from a secret), and add to your
@@ -104,7 +107,7 @@ const Hero: BlockComponent<BlockContentMap["hero"]> = ({ content, context }) => 
 | `blocks` | defaults | Components by block type. `null` hides a type. A key the package doesn't know adds a type. |
 | `jsonLd` | `true` | Render the page's `jsonLd` as `<script type="application/ld+json">`. |
 | `sanitizeHtml` | none | Sanitiser for `rich_text` HTML. Without one, `rich_text` renders as plain text. |
-| `resolveLink` | external URLs with a safe scheme | `href` for a link. Internal links carry a target id, so they render as text until you map them to your routes. |
+| `resolveLink` | external URLs with a safe scheme | `href` for a link. Internal links carry a target id, so they render as text until you map them to your routes. Pages are fetched by slug: map a page id to its slug with `GET /v1/pages`, whose summaries carry both. |
 | `resolveItemHref` | none | `href` for a `dynamic_content` item. |
 | `renderContextBound` | `false` | Render blocks the response marks `contextBound`. |
 | `contentProps` | `{}` | Overrides forwarded to `MentraContent` for article bodies. |
