@@ -140,10 +140,14 @@ describe("MentraPage", () => {
   });
 
   it("never injects rich_text HTML without a sanitiser", () => {
-    const out = html(page([block("rich_text", { html: "<p>Hi</p><script>x()</script>``````&lt;img src=x onerror=y()&gt;``````" })]));
+    const out = html(page([block("rich_text", { html: "<p>Hi</p><script>x()</script><img src=x onerror=y()>" })]));
     expect(out).toContain("<p>Hi</p>");
     expect(out).not.toContain("<script");
-    expect(out).not.toContain("```````&lt;img");·+  });·+·+  it("injects sanitised rich_text HTML when a sanitiser is given", () =&gt; {·+    const out = html(page([block("rich_text", { html: "&lt;p&gt;```````<b>Hi</b><script>x()</script></p>" })]), {
+    expect(out).not.toContain("<img");
+  });
+
+  it("injects sanitised rich_text HTML when a sanitiser is given", () => {
+    const out = html(page([block("rich_text", { html: "<p><b>Hi</b><script>x()</script></p>" })]), {
       sanitizeHtml: (h: string) => h.replace(/<script.*?<\/script>/g, ""),
     });
     expect(out).toContain("<p><b>Hi</b></p>");

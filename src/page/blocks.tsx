@@ -167,7 +167,7 @@ export function ImageBlock({ content, context }: Props<ImageContent>) {
   if (!src) return null;
   return (
     <figure className="mentra-block mentra-block-image">
-      ``&lt;img src={src} alt={str(content.alt) ?? ""} /&gt;``
+      <img src={src} alt={str(content.alt) ?? ""} />
     </figure>
   );
 }
@@ -299,7 +299,7 @@ export function DynamicContentBlock({ block, content, context }: Props<DynamicCo
           const title: ReactNode = href ? <a href={href}>{str(item.title)}</a> : str(item.title);
           return (
             <li key={str(item.id) ?? i}>
-              {cover && `````&lt;img src={cover} alt="" /&gt;`````}
+              {cover && <img src={cover} alt="" />}
               <h3>{title}</h3>
               {summary && <p>{summary}</p>}
             </li>
