@@ -8,3 +8,4 @@ export type {
   TipTapNode, TipTapMark, ImageAttrs,
   NodeRenderer, MarkRenderer, MentraContentProps,
 } from "./types";
+export * from "./page";

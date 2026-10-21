@@ -65,6 +65,55 @@ import "@mentra-intelligence/react/styles";
 <div dangerouslySetInnerHTML={{ __html: content.contentHtml }} />
 ```
 
+## Pages: `MentraPage`
+
+Render a published page from `GET /v1/pages/{slug}` with one component:
+
+```tsx
+import { MentraPage } from "@mentra-intelligence/react";
+import DOMPurify from "dompurify";
+
+const page = await fetch(`${API}/v1/pages/home`, { headers }).then((r) => r.json());
+
+<MentraPage page={page} sanitizeHtml={(html) => DOMPurify.sanitize(html)} />;
+```
+
+Every block type has an unstyled default (semantic HTML, `mentra-block-*`
+classes). Replace any of them with `blocks`:
+
+```tsx
+import { MentraPage, type BlockComponent, type BlockContentMap } from "@mentra-intelligence/react";
+
+const Hero: BlockComponent<BlockContentMap["hero"]> = ({ content, context }) => (
+  <header className="my-hero">
+    <h1>{content.heading}</h1>
+    {content.ctaText && <a href={context.resolveLink(content.ctaLink)}>{content.ctaText}</a>}
+  </header>
+);
+
+<MentraPage page={page} blocks={{ hero: Hero, testimonials: null /* hide */ }} />;
+```
+
+| Prop | Default | |
+|------|---------|---|
+| `blocks` | defaults | Components by block type. `null` hides a type. A key the package doesn't know adds a type. |
+| `jsonLd` | `true` | Render the page's `jsonLd` as `<script type="application/ld+json">`. |
+| `sanitizeHtml` | none | Sanitiser for `rich_text` HTML. Without one, `rich_text` renders as plain text. |
+| `resolveLink` | external URLs with a safe scheme | `href` for a link. Internal links carry a target id, so they render as text until you map them to your routes. |
+| `resolveItemHref` | none | `href` for a `dynamic_content` item. |
+| `renderContextBound` | `false` | Render blocks the response marks `contextBound`. |
+| `contentProps` | `{}` | Overrides forwarded to `MentraContent` for article bodies. |
+| `theme` | `{}` | Colours, fonts and shape, exposed as CSS variables (`--mentra-color-primary`, `--mentra-font-heading`, `--mentra-radius`, …). |
+
+Block types: `hero` `dynamic_hero` `rich_text` `image` `features_grid`
+`testimonials` `faq` `pricing` `cta` `columns` `dynamic_content`
+`content_body` `meta_info` `context_navigation`. A block whose type has no
+component is skipped, so a page using a type newer than your package version
+still renders.
+
+Adding a block type to the package is a one-file change: its content type,
+default component and registry entry all live in `src/page/blocks.tsx`.
+
 ## Supported Nodes
 
 `doc` `paragraph` `heading` `bulletList` `orderedList` `listItem` `blockquote` `codeBlock` `hardBreak` `horizontalRule` `image` `table` `tableRow` `tableHeader` `tableCell`
