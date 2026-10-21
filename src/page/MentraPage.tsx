@@ -52,12 +52,16 @@ function defaultResolveLink(link: LinkValue | null | undefined): string | undefi
 
 const noHref = () => undefined;
 
-/** CSS custom properties for a theme; empty values are left out. */
+/**
+ * CSS custom properties for a theme. Empty values are left out, and so are
+ * values containing `;`, `{` or `}`: server-rendered, those would end the
+ * declaration and add others to the wrapper's `style`.
+ */
 export function themeToCssVars(theme: MentraPageTheme | undefined): Record<string, string> {
   const vars: Record<string, string> = {};
   const put = (prefix: string, group: Record<string, unknown> | undefined) => {
     for (const [key, value] of Object.entries(group ?? {})) {
-      if (typeof value === "string" && value.trim()) {
+      if (typeof value === "string" && value.trim() && !/[;{}]/.test(value)) {
         const name = key.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase());
         vars[`--mentra-${prefix}${name}`] = value;
       }

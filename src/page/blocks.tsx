@@ -356,7 +356,8 @@ export function ColumnsBlock({ content, context }: Props<ColumnsContent>) {
   const columns = list(content.columns);
   if (!columns.length) return null;
   const layout = str(content.layout);
-  const template = (layout && GRID_TEMPLATES[layout]) || `repeat(${columns.length}, 1fr)`;
+  const template = (layout && Object.prototype.hasOwnProperty.call(GRID_TEMPLATES, layout) && GRID_TEMPLATES[layout])
+    || `repeat(${columns.length}, 1fr)`;
   return (
     <div
       className="mentra-block mentra-block-columns"
