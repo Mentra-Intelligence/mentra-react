@@ -178,6 +178,18 @@ describe("MentraPage", () => {
     expect(themeToCssVars(undefined)).toEqual({});
   });
 
+  it("drops theme values that would end the CSS declaration", () => {
+    const out = html(page([]), { theme: { colors: { primary: "red;background:url(https://t.example/)", accent: "x}" } } });
+    expect(out).not.toContain("background:url");
+    expect(themeToCssVars({ colors: { primary: "a;b", accent: "#fff" } })).toEqual({ "--mentra-color-accent": "#fff" });
+  });
+
+  it("ignores a columns layout that names an inherited key", () => {
+    const out = html(page([block("columns", { layout: "toString", columns: [{ blocks: [] }, { blocks: [] }] })]));
+    expect(out).toContain("grid-template-columns:repeat(2, 1fr)");
+    expect(out).not.toContain("native code");
+  });
+
   it("types overrides by content", () => {
     const overrides: BlockOverrides = { hero: ({ content }) => <h1>{content.heading.toUpperCase()}</h1> };
     expect(html(page([SAMPLES.hero.block]), { blocks: overrides })).toContain("WELCOME");
