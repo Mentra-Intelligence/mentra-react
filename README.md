@@ -94,12 +94,15 @@ classes). Replace any of them with `blocks`:
 ```tsx
 import { MentraPage, type BlockComponent, type BlockContentMap } from "@mentra-intelligence/react";
 
-const Hero: BlockComponent<BlockContentMap["hero"]> = ({ content, context }) => (
-  <header className="my-hero">
-    <h1>{content.heading}</h1>
-    {content.ctaText && <a href={context.resolveLink(content.ctaLink)}>{content.ctaText}</a>}
-  </header>
-);
+const Hero: BlockComponent<BlockContentMap["hero"]> = ({ content, context }) => {
+  const href = context.resolveLink(content.ctaLink);
+  return (
+    <header className="my-hero">
+      <h1>{content.heading}</h1>
+      {href && content.ctaText && <a href={href}>{content.ctaText}</a>}
+    </header>
+  );
+};
 
 <MentraPage page={page} blocks={{ hero: Hero, testimonials: null /* hide */ }} />;
 ```
