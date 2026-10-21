@@ -5,7 +5,7 @@
  */
 export { MentraContent } from "./MentraContent";
 export type {
-  TipTapNode, TipTapMark, ImageAttrs,
+  TipTapNode, TipTapMark, ImageAttrs, InternalLink,
   NodeRenderer, MarkRenderer, MentraContentProps,
 } from "./types";
 export * from "./page";

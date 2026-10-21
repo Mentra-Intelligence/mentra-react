@@ -48,6 +48,35 @@ Content creators set image size and alignment in the Mentra editor. Rendered aut
 | `large` | 75% | `right` | Float right |
 | `xl` | 100% | | |
 
+Alt text and caption are edited separately in Mentra. An image with a caption
+and no alt text uses the caption as its `alt`, as Mentra's `contentHtml` does.
+
+## Internal Links
+
+A link from one of your articles to another carries the target's id. The API
+resolves it on every read: the link's `href` is the target's current slug, as
+`/{slug}`, so the link follows the article when its slug changes. A link to an
+article that is not published (or not yours) arrives as plain text; a preview
+read (`publishedOnly=false`) also resolves links to drafts.
+
+```json
+{ "type": "link", "attrs": { "href": "/pricing-guide", "contentId": "abc123", "slug": "pricing-guide" } }
+```
+
+Internal links render at that `href`, in the same tab. If your articles live
+under another path, map them with `resolveInternalLink`; return `undefined` to
+render the text without a link:
+
+```tsx
+<MentraContent
+  doc={content.contentJson}
+  resolveInternalLink={({ slug }) => (slug ? `/blog/${slug}` : undefined)}
+/>
+```
+
+External links (no `contentId`) open in a new tab, as before. A `link` entry in
+`markOverrides` replaces both.
+
 ## Custom Overrides
 
 ```tsx
@@ -171,7 +200,7 @@ default component and registry entry all live in `src/page/blocks.tsx`.
 ## TypeScript
 
 ```tsx
-import type { TipTapNode, TipTapMark, ImageAttrs, NodeRenderer, MarkRenderer, MentraContentProps } from "@mentra-intelligence/react";
+import type { TipTapNode, TipTapMark, ImageAttrs, InternalLink, NodeRenderer, MarkRenderer, MentraContentProps } from "@mentra-intelligence/react";
 ```
 
 ## License
