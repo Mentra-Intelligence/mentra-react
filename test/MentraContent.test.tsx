@@ -142,3 +142,61 @@ describe("embed", () => {
     expect(renderContent([embed(url)])).toBe("");
   });
 });
+
+describe("article blocks", () => {
+  const para = (t: string): TipTapNode => ({ type: "paragraph", content: [text(t)] });
+
+  it.each(["note", "tip", "warning", "info"])("renders a %s callout", (variant) => {
+    expect(renderContent([{ type: "callout", attrs: { variant }, content: [para("Hi")] }])).toBe(
+      `<aside data-callout="${variant}"><p>Hi</p></aside>`,
+    );
+  });
+
+  it.each([["danger"], [undefined], [42]])("falls back to a note callout for %s", (variant) => {
+    expect(renderContent([{ type: "callout", attrs: { variant }, content: [para("Hi")] }])).toBe(
+      '<aside data-callout="note"><p>Hi</p></aside>',
+    );
+  });
+
+  it("renders key takeaways with a title", () => {
+    const list: TipTapNode = { type: "bulletList", content: [{ type: "listItem", content: [para("One")] }] };
+    expect(renderContent([{ type: "keyTakeaways", attrs: { title: " Summary " }, content: [list] }])).toBe(
+      '<section data-key-takeaways=""><h2>Summary</h2><ul><li><p>One</p></li></ul></section>',
+    );
+  });
+
+  it("renders key takeaways without a title", () => {
+    expect(renderContent([{ type: "keyTakeaways", attrs: { title: "  " }, content: [para("One")] }])).toBe(
+      '<section data-key-takeaways=""><p>One</p></section>',
+    );
+  });
+
+  const quote = (attrs: Record<string, unknown>): TipTapNode => ({
+    type: "pullQuote",
+    attrs,
+    content: [text("Words")],
+  });
+
+  it("renders a pull quote with no attribution", () => {
+    expect(renderContent([quote({})])).toBe("<figure><blockquote><p>Words</p></blockquote></figure>");
+  });
+
+  it("renders a plain-text attribution", () => {
+    expect(renderContent([quote({ attribution: "Ada" })])).toBe(
+      "<figure><blockquote><p>Words</p></blockquote><figcaption>Ada</figcaption></figure>",
+    );
+  });
+
+  it("links the attribution to a safe source URL", () => {
+    expect(renderContent([quote({ attribution: "Ada", sourceUrl: "https://example.com/a" })])).toBe(
+      '<figure><blockquote cite="https://example.com/a"><p>Words</p></blockquote>' +
+        '<figcaption><a href="https://example.com/a" rel="noopener noreferrer">Ada</a></figcaption></figure>',
+    );
+  });
+
+  it("drops an unsafe source URL", () => {
+    const out = renderContent([quote({ attribution: "Ada", sourceUrl: "javascript:alert(1)" })]);
+    expect(out).not.toContain("javascript");
+    expect(out).toBe("<figure><blockquote><p>Words</p></blockquote><figcaption>Ada</figcaption></figure>");
+  });
+});

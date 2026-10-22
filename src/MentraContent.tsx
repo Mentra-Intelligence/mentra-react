@@ -1,5 +1,6 @@
 import React, { ReactNode } from "react";
 import type { TipTapNode, InternalLink, NodeRenderer, MarkRenderer, MentraContentProps } from "./types";
+import { safeHref, str } from "./page/util";
 import { IFRAME_REFERRER_POLICY, IFRAME_SANDBOX, iframeAllow, isSafeHttpsUrl, parseEmbedUrl } from "./embed";
 
 const SIZE_STYLES: Record<string, React.CSSProperties> = {
@@ -21,6 +22,31 @@ const EMBED_TITLES: Record<string, string> = {
   loom: "Loom video",
   spotify: "Spotify player",
   google_maps: "Google Map",
+};
+
+const CALLOUT_VARIANTS = new Set(["note", "tip", "warning", "info"]);
+
+/** A trimmed string attribute, or `""` when it is missing or not a string. */
+const textAttr = (node: TipTapNode, key: string): string => str(node.attrs?.[key]) ?? "";
+
+/**
+ * Pull quote as `<figure>`: the quote, plus a `<figcaption>` attribution that
+ * links to `sourceUrl` only when that URL is safe. Matches Mentra's
+ * published HTML.
+ */
+const PullQuote: NodeRenderer = ({ node, children }) => {
+  const url = safeHref(node.attrs?.sourceUrl);
+  const attribution = textAttr(node, "attribution");
+  return (
+    <figure>
+      <blockquote cite={url}><p>{children}</p></blockquote>
+      {attribution && (
+        <figcaption>
+          {url ? <a href={url} rel="noopener noreferrer">{attribution}</a> : attribution}
+        </figcaption>
+      )}
+    </figure>
+  );
 };
 
 const isHeaderRow = (row: TipTapNode) =>
@@ -135,6 +161,15 @@ const defaultNodes: Record<string, NodeRenderer> = {
   tableHeader: ({ children }) => <th>{children}</th>,
   tableCell:   ({ children }) => <td>{children}</td>,
   embed:       Embed,
+  callout: ({ node, children }) => {
+    const variant = textAttr(node, "variant");
+    return <aside data-callout={CALLOUT_VARIANTS.has(variant) ? variant : "note"}>{children}</aside>;
+  },
+  keyTakeaways: ({ node, children }) => {
+    const title = textAttr(node, "title");
+    return <section data-key-takeaways="">{title && <h2>{title}</h2>}{children}</section>;
+  },
+  pullQuote:   PullQuote,
 };
 
 const defaultMarks: Record<string, MarkRenderer> = {
