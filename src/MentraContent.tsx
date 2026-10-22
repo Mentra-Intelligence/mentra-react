@@ -1,5 +1,6 @@
 import React, { ReactNode } from "react";
 import type { TipTapNode, TipTapMark, NodeRenderer, MarkRenderer, MentraContentProps } from "./types";
+import { IFRAME_REFERRER_POLICY, IFRAME_SANDBOX, iframeAllow, isSafeHttpsUrl, parseEmbedUrl } from "./embed";
 
 const SIZE_STYLES: Record<string, React.CSSProperties> = {
   small:  { maxWidth: "25%" },
@@ -12,6 +13,72 @@ const ALIGN_STYLES: Record<string, React.CSSProperties> = {
   left:   { float: "left", marginRight: "1em" },
   center: { display: "block", marginLeft: "auto", marginRight: "auto" },
   right:  { float: "right", marginLeft: "1em" },
+};
+
+const EMBED_TITLES: Record<string, string> = {
+  youtube: "YouTube video",
+  vimeo: "Vimeo video",
+  loom: "Loom video",
+  spotify: "Spotify player",
+  google_maps: "Google Map",
+};
+
+const isHeaderRow = (row: TipTapNode) =>
+  !!row.content?.length && row.content.every((cell) => cell.type === "tableHeader");
+
+/**
+ * `<table>` with its leading all-`tableHeader` rows in `<thead>`, the rest in
+ * `<tbody>`, matching Mentra's published HTML.
+ */
+const Table: NodeRenderer = ({ node, children }) => {
+  const rows = React.Children.toArray(
+    React.isValidElement<{ children?: ReactNode }>(children) ? children.props.children : children,
+  );
+  const source = node.content ?? [];
+  let split = 0;
+  while (split < source.length && isHeaderRow(source[split])) split += 1;
+  const head = rows.slice(0, split);
+  const body = rows.slice(split);
+  return (
+    <table>
+      {head.length > 0 && <thead>{head}</thead>}
+      {body.length > 0 && <tbody>{body}</tbody>}
+    </table>
+  );
+};
+
+/**
+ * An allowlisted provider URL as a sandboxed iframe; any other https URL as a
+ * link; anything else as nothing. The frame `src` is built by the allowlist
+ * parser, never taken from the node.
+ */
+const Embed: NodeRenderer = ({ node }) => {
+  const url: unknown = node.attrs?.url;
+  const parsed = parseEmbedUrl(url);
+  if (parsed) {
+    return (
+      <figure data-embed={parsed.provider}>
+        <iframe
+          src={parsed.embedUrl}
+          title={EMBED_TITLES[parsed.provider] ?? "Embedded content"}
+          sandbox={IFRAME_SANDBOX}
+          allow={iframeAllow(parsed.provider)}
+          referrerPolicy={IFRAME_REFERRER_POLICY}
+          loading="lazy"
+          allowFullScreen
+          style={parsed.provider === "spotify" ? { width: "100%", border: 0, height: 152 } : { width: "100%", border: 0, aspectRatio: "16 / 9" }}
+        />
+      </figure>
+    );
+  }
+  if (isSafeHttpsUrl(url)) {
+    return (
+      <p>
+        <a href={url} rel="noopener noreferrer">{url}</a>
+      </p>
+    );
+  }
+  return null;
 };
 
 const defaultNodes: Record<string, NodeRenderer> = {
@@ -60,10 +127,11 @@ const defaultNodes: Record<string, NodeRenderer> = {
       />
     );
   },
-  table:       ({ children }) => <table>{children}</table>,
+  table:       Table,
   tableRow:    ({ children }) => <tr>{children}</tr>,
   tableHeader: ({ children }) => <th>{children}</th>,
   tableCell:   ({ children }) => <td>{children}</td>,
+  embed:       Embed,
 };
 
 const defaultMarks: Record<string, MarkRenderer> = {
