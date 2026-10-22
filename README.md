@@ -162,7 +162,17 @@ default component and registry entry all live in `src/page/blocks.tsx`.
 
 ## Supported Nodes
 
-`doc` `paragraph` `heading` `bulletList` `orderedList` `listItem` `blockquote` `codeBlock` `hardBreak` `horizontalRule` `image` `table` `tableRow` `tableHeader` `tableCell`
+`doc` `paragraph` `heading` `bulletList` `orderedList` `listItem` `blockquote` `codeBlock` `hardBreak` `horizontalRule` `image` `table` `tableRow` `tableHeader` `tableCell` `embed`
+
+A `table` puts its leading all-`tableHeader` rows in `<thead>` and the rest in
+`<tbody>`, as Mentra's published HTML does.
+
+An `embed` node (`{"type": "embed", "attrs": {"url": "…"}}`) renders a
+sandboxed `<iframe>` only for a YouTube, Vimeo, Loom, Spotify or Google Maps
+URL. The frame `src` is built from the parsed id by the same allowlist Mentra
+enforces, never taken from `url`. Any other https URL renders as a link, and
+anything else renders nothing. The frames need the same `frame-src` hosts as
+the page `video` and `embed` blocks above.
 
 ## Supported Marks
 
