@@ -16,8 +16,8 @@ on:
 permissions:
   contents: read
   packages: write
-  # Lets npm prove this workflow's identity: needed for --provenance now and
-  # for trusted publishing (no stored token) once it is configured on npmjs.
+  # Lets npm prove this workflow's identity, for trusted publishing and
+  # --provenance.
   id-token: write
 
 jobs:
@@ -38,11 +38,11 @@ jobs:
       - run: npm test
 
       # Public registry: what tenants install from, no token needed to install.
-      # NPM_TOKEN is only for the first publish; once trusted publishing is set
-      # up on npmjs, npm uses the OIDC identity instead and the secret goes.
+      # Publishing uses npm trusted publishing: npmjs trusts this workflow file
+      # in this repo via its OIDC identity (id-token: write), so no npm token is
+      # stored anywhere. Renaming this file breaks that trust until the trusted
+      # publisher entry on npmjs is updated to match.
       - run: npm publish --access public --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       # GitHub Packages, kept for existing installs until they move to npmjs.
       - uses: actions/setup-node@v4
