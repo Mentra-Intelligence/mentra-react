@@ -13,15 +13,10 @@ npm install @mentra-intelligence/react
 The `MentraPage` example below also uses `isomorphic-dompurify`
 (`npm install isomorphic-dompurify`), or any sanitiser of your own.
 
-GitHub Packages needs a token to install any package, public ones included.
-Create a personal access token (classic) with the `read:packages` scope, export
-it as `NODE_AUTH_TOKEN` (locally, and in CI from a secret), and add to your
-project's `.npmrc`:
-
-```
-@mentra-intelligence:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
-```
+Published on the public npm registry, so no token or `.npmrc` setup is
+needed. If your project's `.npmrc` still points `@mentra-intelligence` at
+GitHub Packages (`@mentra-intelligence:registry=https://npm.pkg.github.com`),
+remove that line and its `_authToken` line.
 
 ## Quick Start
 

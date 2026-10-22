@@ -4,23 +4,54 @@ on:
   push:
     tags:
       - "v*"
+  # Manual run, for publishing a version that is already tagged (for example
+  # the first npmjs release of a version GitHub Packages already has).
+  workflow_dispatch:
+    inputs:
+      github_packages:
+        description: "Also publish to GitHub Packages (fails if that version is already there)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
   packages: write
+  # Lets npm prove this workflow's identity: needed for --provenance now and
+  # for trusted publishing (no stored token) once it is configured on npmjs.
+  id-token: write
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # Node 24 ships npm 11, which supports trusted publishing (>= 11.5.1).
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+          scope: "@mentra-intelligence"
+      - run: npm --version
+      - run: npm install
+      - run: npm run typecheck
+      - run: npm test
+
+      # Public registry: what tenants install from, no token needed to install.
+      # NPM_TOKEN is only for the first publish; once trusted publishing is set
+      # up on npmjs, npm uses the OIDC identity instead and the secret goes.
+      - run: npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # GitHub Packages, kept for existing installs until they move to npmjs.
+      - uses: actions/setup-node@v4
+        if: github.event_name == 'push' || inputs.github_packages
+        with:
+          node-version: "24"
           registry-url: "https://npm.pkg.github.com"
           scope: "@mentra-intelligence"
-      - run: npm install
-      - run: npm run build
-      - run: npm publish
+      - run: npm publish --access public
+        if: github.event_name == 'push' || inputs.github_packages
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
