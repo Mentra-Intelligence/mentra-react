@@ -26,6 +26,13 @@ const YT = {
 };
 const MP4 = { provider: "file", fileUrl: "https://cdn.test/clip.mp4" };
 
+/** `resolved` as `/v1/pages` returns it for a live webhook form (`backend/app/libs/page_block_form.py`). */
+const HOOK = {
+  type: "webhook", method: "POST", preview: false, submitUrl: "https://hooks.zapier.com/hooks/catch/1/abc/",
+  encoding: "form", fieldNames: { email: "email", name: "name", consent: "consent" }, honeypotField: "_gotcha",
+};
+const FORM = { heading: "Join", collectName: true, consentText: "I agree", buttonText: "Sign up", destination: { type: "webhook", url: HOOK.submitUrl } };
+
 /** One valid block of every contract type, with its expected default output. */
 const SAMPLES: Record<string, { block: PageBlock; expect: string }> = {
   hero: { block: block("hero", { heading: "Welcome", subheading: "Sub", ctaText: "Go", ctaLink: ext("https://x.test") }), expect: "<h1>Welcome</h1>" },
@@ -44,6 +51,7 @@ const SAMPLES: Record<string, { block: PageBlock; expect: string }> = {
   content_body: { block: block("content_body", { sourceType: "specific", contentId: "s1" }, { resolved: { item: { id: "s1", contentJson: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "Body text" }] }] } } } }), expect: "<p>Body text</p>" },
   meta_info: { block: block("meta_info", { showAuthor: true }), expect: "" },
   context_navigation: { block: block("context_navigation", { showNext: true }), expect: "" },
+  form: { block: block("form", FORM, { resolved: HOOK }), expect: `<form action="${HOOK.submitUrl}" method="post">` },
 };
 
 describe("MentraPage", () => {
@@ -242,6 +250,67 @@ describe("MentraPage", () => {
         for (const resolved of [null, undefined, { provider: "file" }]) {
           expect(html(page([block(type, { url: "https://youtu.be/x" }, { resolved } as never)]))).toBe('<div class="mentra-page"></div>');
         }
+      }
+    });
+  });
+
+  describe("form", () => {
+    const formHtml = (resolved: unknown, content: unknown = FORM) =>
+      html(page([block("form", content, { resolved } as never)]));
+
+    it("posts a live webhook form natively, with the field names from resolved", () => {
+      const out = formHtml(HOOK);
+      expect(out).toContain('name="email"');
+      expect(out).toContain('name="name"');
+      expect(out).toMatch(/<input type="checkbox" required="" name="consent" value="yes"\/>/);
+      expect(out).toContain('<button type="submit">Sign up</button>');
+      expect(out).not.toContain("Preview");
+    });
+
+    it("adds an off-screen honeypot hidden from assistive tech", () => {
+      const trap = formHtml(HOOK).match(/<div aria-hidden="true" style="position:absolute;left:-10000px">(<input [^>]*\/>)<\/div>/);
+      expect(trap?.[1]).toContain('name="_gotcha"');
+      expect(trap?.[1]).toContain('tabindex="-1"');
+      expect(trap?.[1]).toMatch(/autocomplete="off"/i);
+    });
+
+    it("never wires a preview to a destination", () => {
+      for (const resolved of [
+        { ...HOOK, preview: true, submitUrl: null },
+        { ...HOOK, preview: true }, // even if a URL slipped through
+        { ...HOOK, preview: undefined },
+        { ...HOOK, submitUrl: "http://hooks.zapier.com/x" },
+      ]) {
+        const out = formHtml(resolved);
+        expect(out).not.toContain("action=");
+        expect(out).not.toContain("hooks.zapier.com");
+        expect(out).toContain('<button type="submit" disabled="">');
+        expect(out).toContain("Preview: submitting is off.");
+      }
+    });
+
+    it("opens Mailchimp's confirmation in a new tab", () => {
+      const mc = {
+        ...HOOK, type: "mailchimp", submitUrl: "https://x.us21.list-manage.com/subscribe/post?u=abcdef0123&id=abc123",
+        fieldNames: { email: "EMAIL", name: "FNAME", consent: null }, honeypotField: "b_abcdef0123_abc123",
+      };
+      const out = formHtml(mc, { ...FORM, collectName: false });
+      expect(out).toContain('target="_blank"');
+      expect(out).toContain('name="EMAIL"');
+      expect(out).toContain('name="b_abcdef0123_abc123"');
+      // No consent field at Mailchimp: the box only gates the submit.
+      expect(out).toContain('<input type="checkbox" required=""/>');
+    });
+
+    it("leaves a live HubSpot form to a client override", () => {
+      const hs = { ...HOOK, type: "hubspot", encoding: "json", submitUrl: "https://api.hsforms.com/submissions/v3/integration/submit/1/x" };
+      expect(formHtml(hs)).toBe('<div class="mentra-page"></div>');
+      expect(formHtml({ ...hs, preview: true, submitUrl: null })).toContain("Preview: submitting is off.");
+    });
+
+    it("renders nothing without a usable resolved", () => {
+      for (const resolved of [null, undefined, { type: "webhook" }, { ...HOOK, fieldNames: null }]) {
+        expect(formHtml(resolved)).toBe('<div class="mentra-page"></div>');
       }
     });
   });
