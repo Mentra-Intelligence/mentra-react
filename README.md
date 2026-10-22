@@ -48,6 +48,35 @@ Content creators set image size and alignment in the Mentra editor. Rendered aut
 | `large` | 75% | `right` | Float right |
 | `xl` | 100% | | |
 
+Alt text and caption are edited separately in Mentra. An image with a caption
+and no alt text uses the caption as its `alt`, as Mentra's `contentHtml` does.
+
+## Internal Links
+
+A link from one of your articles to another carries the target's id. The API
+resolves it on every read: the link's `href` is the target's current slug, as
+`/{slug}`, so the link follows the article when its slug changes. A link to an
+article that is not published (or not yours) arrives as plain text; a preview
+read (`publishedOnly=false`) also resolves links to drafts.
+
+```json
+{ "type": "link", "attrs": { "href": "/pricing-guide", "contentId": "abc123", "slug": "pricing-guide" } }
+```
+
+Internal links render at that `href`, in the same tab. If your articles live
+under another path, map them with `resolveInternalLink`; return `undefined` to
+render the text without a link:
+
+```tsx
+<MentraContent
+  doc={content.contentJson}
+  resolveInternalLink={({ slug }) => (slug ? `/blog/${slug}` : undefined)}
+/>
+```
+
+External links (no `contentId`) open in a new tab, as before. A `link` entry in
+`markOverrides` replaces both.
+
 ## Custom Overrides
 
 ```tsx
@@ -113,14 +142,14 @@ const Hero: BlockComponent<BlockContentMap["hero"]> = ({ content, context }) => 
 | `jsonLd` | `true` | Render the page's `jsonLd` as `<script type="application/ld+json">`. |
 | `sanitizeHtml` | none | Sanitiser for `rich_text` HTML. Without one, `rich_text` renders as plain text. |
 | `resolveLink` | external URLs with a safe scheme | `href` for a link. Internal links carry a target id, so they render as text until you map them to your routes. Pages are fetched by slug: map a page id to its slug with `GET /v1/pages`, whose summaries carry both. |
-| `resolveItemHref` | none | `href` for a `dynamic_content` item: a standalone article, or a Section node (with its `nodeTypeKey`) when the block's `source` is `section`. Gets `(item, block)`. |
+| `resolveItemHref` | none | `href` for a `dynamic_content` or `related_content` item: a standalone article, or a Section node (with its `nodeTypeKey`) when the block's `source` is `section` or a `related_content` block lists a node's siblings. Gets `(item, block)`. |
 | `renderContextBound` | `false` | Render blocks the response marks `contextBound`. |
 | `contentProps` | `{}` | Overrides forwarded to `MentraContent` for article bodies. |
 | `theme` | `{}` | Colours, fonts and shape, exposed as CSS variables (`--mentra-color-primary`, `--mentra-font-heading`, `--mentra-radius`, …). |
 
 Block types: `hero` `dynamic_hero` `rich_text` `image` `video` `embed` `features_grid`
 `testimonials` `faq` `pricing` `cta` `columns` `dynamic_content`
-`content_body` `meta_info` `context_navigation` `form`. A block whose type has no
+`content_body` `meta_info` `context_navigation` `related_content` `form`. A block whose type has no
 component is skipped, so a page using a type newer than your package version
 still renders.
 
@@ -278,7 +307,7 @@ relative or http, https, mailto or tel.
 ## TypeScript
 
 ```tsx
-import type { TipTapNode, TipTapMark, ImageAttrs, NodeRenderer, MarkRenderer, MentraContentProps } from "@mentra-intelligence/react";
+import type { TipTapNode, TipTapMark, ImageAttrs, InternalLink, NodeRenderer, MarkRenderer, MentraContentProps } from "@mentra-intelligence/react";
 ```
 
 ## License

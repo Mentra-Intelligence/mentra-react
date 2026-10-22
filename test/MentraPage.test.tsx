@@ -51,6 +51,7 @@ const SAMPLES: Record<string, { block: PageBlock; expect: string }> = {
   content_body: { block: block("content_body", { sourceType: "specific", contentId: "s1" }, { resolved: { item: { id: "s1", contentJson: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "Body text" }] }] } } } }), expect: "<p>Body text</p>" },
   meta_info: { block: block("meta_info", { showAuthor: true }), expect: "" },
   context_navigation: { block: block("context_navigation", { showNext: true }), expect: "" },
+  related_content: { block: block("related_content", { title: "Related" }, { resolved: { items: [{ id: "s2", title: "Other post" }] } }), expect: "Other post" },
   form: { block: block("form", FORM, { resolved: HOOK }), expect: `<form action="${HOOK.submitUrl}" method="post">` },
 };
 
@@ -320,6 +321,24 @@ describe("MentraPage", () => {
       contentProps: { nodeOverrides: { paragraph: ({ children }: { children: unknown }) => <p className="x">{children as never}</p> } },
     });
     expect(out).toContain('<p class="x">Body text</p>');
+  });
+
+  it("renders related_content only when context-bound blocks are asked for, and nothing when empty", () => {
+    const related = (items: unknown[]) => block("related_content", { title: "Related", style: "list" },
+      { contextBound: true, resolved: { items } as PageBlock["resolved"] });
+    const one = related([{ id: "s2", title: "Other post", summary: "Sum" }]);
+    expect(html(page([one]))).not.toContain("Other post");
+    const out = html(page([one]), { renderContextBound: true, resolveItemHref: (it: { id: string }) => `/a/${it.id}` });
+    expect(out).toContain('class="mentra-block mentra-block-related-content" data-style="list"');
+    expect(out).toContain('<a href="/a/s2">Other post</a>');
+    expect(html(page([related([])]), { renderContextBound: true })).toBe('<div class="mentra-page"></div>');
+    // A Section node's siblings carry nodeTypeKey and no summary.
+    const node = related([{ id: "n2", nodeTypeKey: "lesson", title: "Next lesson", slug: "next" }]);
+    const nodeOut = html(page([node]), {
+      renderContextBound: true,
+      resolveItemHref: (it: { id: string; nodeTypeKey?: string }) => `/${it.nodeTypeKey}/${it.id}`,
+    });
+    expect(nodeOut).toContain('<a href="/lesson/n2">Next lesson</a>');
   });
 
   it("links dynamic_content items through resolveItemHref", () => {
