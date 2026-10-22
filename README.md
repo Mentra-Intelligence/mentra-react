@@ -252,7 +252,7 @@ A block type's content type, default component and registry entry live in
 
 ## Supported Nodes
 
-`doc` `paragraph` `heading` `bulletList` `orderedList` `listItem` `blockquote` `codeBlock` `hardBreak` `horizontalRule` `image` `table` `tableRow` `tableHeader` `tableCell` `embed`
+`doc` `paragraph` `heading` `bulletList` `orderedList` `listItem` `blockquote` `codeBlock` `hardBreak` `horizontalRule` `image` `table` `tableRow` `tableHeader` `tableCell` `embed` `callout` `keyTakeaways` `pullQuote`
 
 A `table` puts its leading all-`tableHeader` rows in `<thead>` and the rest in
 `<tbody>`, as Mentra's published HTML does.
@@ -263,6 +263,13 @@ URL. The frame `src` is built from the parsed id by the same allowlist Mentra
 enforces, never taken from `url`. Any other https URL renders as a link, and
 anything else renders nothing. The frames need the same `frame-src` hosts as
 the page `video` and `embed` blocks above.
+
+The article blocks match Mentra's published HTML: a `callout` renders
+`<aside data-callout="note|tip|warning|info">` (an unknown variant falls back to
+`note`); `keyTakeaways` renders `<section data-key-takeaways>` with an optional
+`<h2>` title; `pullQuote` renders a `<figure>` with a `<blockquote>` and an
+optional `<figcaption>` attribution, linked to `sourceUrl` only when that URL is
+relative or http, https, mailto or tel.
 
 ## Supported Marks
 
