@@ -29,8 +29,13 @@ export interface MentraPageProps {
   renderContextBound?: boolean;
   /**
    * `href` for a link from block content. Default: an external link's URL
-   * if its scheme is safe; internal links (which carry a target id, not a
-   * route) render as plain text until you map them to your routes.
+   * if its scheme is safe; other internal links (which carry a target id, not
+   * a route) render as plain text until you map them to your routes.
+   *
+   * An internal page link whose `url` is a non-empty string (`/v1` sets it to
+   * `/{slug}` when the target is a published page) always uses that `url`;
+   * `resolveLink` is not called for it and cannot override it. When `url` is
+   * null or missing, `resolveLink` decides (Mentra #5038).
    */
   resolveLink?: (link: LinkValue | null | undefined) => string | undefined;
   /** `href` for a `dynamic_content` item. Default: none (titles render as text). */
@@ -49,6 +54,18 @@ export interface MentraPageProps {
 function defaultResolveLink(link: LinkValue | null | undefined): string | undefined {
   if (!link || typeof link !== "object" || link.type !== "external") return undefined;
   return safeHref(link.url);
+}
+
+/**
+ * The API's own route for an internal page link: its `url`, when that is a
+ * non-empty string. `undefined` when the link has none, so the caller falls
+ * back to `resolveLink`; `null` when it has one with an unsafe scheme, so the
+ * link renders as text and `resolveLink` still cannot override it.
+ */
+function pageLinkUrl(link: LinkValue | null | undefined): string | null | undefined {
+  if (!link || typeof link !== "object" || link.type !== "internal" || link.targetType !== "page") return undefined;
+  if (typeof link.url !== "string" || !link.url.trim()) return undefined;
+  return safeHref(link.url) ?? null;
 }
 
 const noHref = () => undefined;
@@ -131,7 +148,10 @@ export function MentraPage(props: MentraPageProps) {
   const context: PageRenderContext = {
     theme,
     page,
-    resolveLink,
+    resolveLink: (link) => {
+      const url = pageLinkUrl(link);
+      return url === undefined ? resolveLink(link) : url ?? undefined;
+    },
     resolveImage: safeImageSrc,
     resolveItemHref,
     sanitizeHtml,
