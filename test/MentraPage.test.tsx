@@ -393,8 +393,9 @@ describe("hero (Mentra #5001)", () => {
       heading: "Trust", ctaText: "Start", ctaLink: ext("https://x.test"),
       backgroundImage: bg, overlayOpacity: 0.8, secondaryCtaText: "More", secondaryCtaLink: ext("/more"),
     })]));
-    expect(out).toContain('<a class="mentra-block-cta" href="https://x.test">Start</a>');
-    expect(out).toContain('href="/more">More</a>');
+    // Over the image the buttons take the white text colour, not link blue.
+    expect(out).toContain('<a class="mentra-block-cta" href="https://x.test" style="color:inherit">Start</a>');
+    expect(out).toContain('href="/more" style="color:inherit">More</a>');
     expect(out).toContain("rgba(0,0,0,0.8)");
     expect(out).toContain("color:#fff");
   });

@@ -10,7 +10,7 @@
  * Every one returns `null` rather than an empty shell when the fields the
  * contract marks render-required are missing, and skips `null` list entries.
  */
-import type { HTMLAttributeReferrerPolicy, ReactNode } from "react";
+import type { CSSProperties, HTMLAttributeReferrerPolicy, ReactNode } from "react";
 import { MentraContent } from "../MentraContent";
 import type { TipTapNode } from "../types";
 import type {
@@ -111,13 +111,13 @@ function linkAttrs(link: unknown, context: PageRenderContext) {
 }
 
 /** A link if it resolves, otherwise plain text (never an `href`-less `<a>`). */
-function MaybeLink({ text, link, context, className }: {
-  text: string; link: unknown; context: PageRenderContext; className: string;
+function MaybeLink({ text, link, context, className, style }: {
+  text: string; link: unknown; context: PageRenderContext; className: string; style?: CSSProperties;
 }) {
   const attrs = linkAttrs(link, context);
   return attrs
-    ? <a className={className} {...attrs}>{text}</a>
-    : <span className={className}>{text}</span>;
+    ? <a className={className} {...attrs} style={style}>{text}</a>
+    : <span className={className} style={style}>{text}</span>;
 }
 
 function Title({ text }: { text: string | undefined }) {
@@ -167,14 +167,17 @@ function Hero({ content, context, className, primaryText, primaryLink, align }: 
         backgroundSize: "cover", backgroundPosition: "center", color: "#fff",
       }
     : undefined;
+  // Links don't inherit the section's colour, so over an image they take it
+  // explicitly: otherwise they keep the browser's blue on the dark overlay.
+  const ctaStyle = bg ? { color: "inherit" } : undefined;
   return (
     <section className={className} data-align={align} style={style}>
       <h1>{heading}</h1>
       {sub && <p>{sub}</p>}
       {(primary || secondary) && (
         <div className="mentra-block-actions">
-          {primary && <MaybeLink className="mentra-block-cta" text={primary} link={primaryLink} context={context} />}
-          {secondary && <MaybeLink className="mentra-block-cta mentra-block-cta-secondary" text={secondary} link={content.secondaryCtaLink} context={context} />}
+          {primary && <MaybeLink className="mentra-block-cta" text={primary} link={primaryLink} context={context} style={ctaStyle} />}
+          {secondary && <MaybeLink className="mentra-block-cta mentra-block-cta-secondary" text={secondary} link={content.secondaryCtaLink} context={context} style={ctaStyle} />}
         </div>
       )}
     </section>
