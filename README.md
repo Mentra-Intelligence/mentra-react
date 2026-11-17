@@ -182,7 +182,9 @@ plain text.
   provider URL it also returns `resolved.reducedMotionEmbedUrl`, the same
   player without it, and the frame uses that for such a visitor. The server
   render can't know the preference, so it never autoplays; autoplay starts
-  after hydration when the browser allows motion.
+  after hydration when the browser allows motion. Only such a block is a
+  client component (`"use client"`); the rest of `MentraPage` still renders
+  in a React Server Component.
 - `resolved: null` (the stored URL failed the check) renders nothing.
 
 The default `<video>` sets no `crossOrigin`, because CORS mode would stop the
