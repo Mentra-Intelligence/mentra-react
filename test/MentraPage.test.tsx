@@ -384,3 +384,31 @@ describe("safeHref", () => {
     ["JaVaScRiPt:x", undefined], ["", undefined], [null, undefined],
   ])("%s → %s", (input, out) => expect(safeHref(input)).toBe(out));
 });
+
+describe("hero (Mentra #5001)", () => {
+  const bg = "https://img.test/bg.jpg";
+
+  it("renders hero's optional image, overlay and second button like dynamic_hero", () => {
+    const out = html(page([block("hero", {
+      heading: "Trust", ctaText: "Start", ctaLink: ext("https://x.test"),
+      backgroundImage: bg, overlayOpacity: 0.8, secondaryCtaText: "More", secondaryCtaLink: ext("/more"),
+    })]));
+    expect(out).toContain('<a class="mentra-block-cta" href="https://x.test">Start</a>');
+    expect(out).toContain('href="/more">More</a>');
+    expect(out).toContain("rgba(0,0,0,0.8)");
+    expect(out).toContain("color:#fff");
+  });
+
+  it("never renders a NaN or unreadably light overlay over an image", () => {
+    for (const overlayOpacity of [Number.NaN, 0.1, "0.9", null]) {
+      const out = html(page([block("dynamic_hero", { heading: "Big", backgroundImage: bg, overlayOpacity })]));
+      expect(out).toContain("rgba(0,0,0,0.55)");
+      expect(out).not.toContain("NaN");
+    }
+  });
+
+  it("adds no overlay or white text without an image", () => {
+    const out = html(page([block("hero", { heading: "Plain", overlayOpacity: 0.9 })]));
+    expect(out).not.toContain("style=");
+  });
+});

@@ -36,12 +36,15 @@ export interface Column { id?: string; blocks?: unknown[] }
 
 export interface HeroContent {
   heading: string; subheading?: string; ctaText?: string; ctaLink?: LinkValue | null;
+  /** Optional (Mentra #5001): the same background, overlay and second button as `dynamic_hero`. */
+  backgroundImage?: string; overlayOpacity?: number | null;
+  secondaryCtaText?: string; secondaryCtaLink?: LinkValue | null;
 }
 export interface DynamicHeroContent {
   heading: string; subheading?: string; backgroundImage?: string;
   primaryCtaText?: string; primaryCtaLink?: LinkValue | null;
   secondaryCtaText?: string; secondaryCtaLink?: LinkValue | null;
-  alignment?: "left" | "center" | "right"; overlayOpacity?: number; height?: string;
+  alignment?: "left" | "center" | "right"; overlayOpacity?: number | null; height?: string;
 }
 export interface RichTextContent { html: string }
 export interface ImageContent { url: string; alt?: string }
@@ -131,43 +134,66 @@ const GRID_TEMPLATES: Record<string, string> = {
 
 // ---------------------------------------------------------------- defaults
 
-export function HeroBlock({ content, context }: Props<HeroContent>) {
-  const heading = str(content.heading);
-  if (!heading) return null;
-  const sub = str(content.subheading);
-  const cta = str(content.ctaText);
-  return (
-    <section className="mentra-block mentra-block-hero">
-      <h1>{heading}</h1>
-      {sub && <p>{sub}</p>}
-      {cta && <MaybeLink className="mentra-block-cta" text={cta} link={content.ctaLink} context={context} />}
-    </section>
-  );
+/** Overlay when none is stored, and the floor that keeps text over an image readable. */
+export const HERO_DEFAULT_OVERLAY = 0.55;
+export const HERO_MIN_TEXT_OVERLAY = 0.55;
+
+/** The darkening overlay for text over an image: always a finite number in [0.55, 1]. */
+export function heroOverlayOpacity(value: unknown): number {
+  const v = typeof value === "number" && Number.isFinite(value) ? value : HERO_DEFAULT_OVERLAY;
+  return Math.min(1, Math.max(HERO_MIN_TEXT_OVERLAY, v));
 }
 
-export function DynamicHeroBlock({ content, context }: Props<DynamicHeroContent>) {
+/**
+ * The one hero layout behind `hero` and `dynamic_hero` (Mentra #5001): the
+ * two stored types differ only in the primary button's field names. The
+ * background image is decorative (a CSS background, so it has no alt text),
+ * darkened enough for the white text on it to stay readable.
+ */
+function Hero({ content, context, className, primaryText, primaryLink, align }: {
+  content: Record<string, unknown>; context: PageRenderContext; className: string;
+  primaryText: unknown; primaryLink: unknown; align?: string;
+}) {
   const heading = str(content.heading);
   if (!heading) return null;
   const sub = str(content.subheading);
   const bg = context.resolveImage(str(content.backgroundImage));
-  const primary = str(content.primaryCtaText);
+  const primary = str(primaryText);
   const secondary = str(content.secondaryCtaText);
-  const align = str(content.alignment);
+  const shade = heroOverlayOpacity(content.overlayOpacity);
+  const style = bg
+    ? {
+        backgroundImage: `linear-gradient(rgba(0,0,0,${shade}), rgba(0,0,0,${shade})), url(${JSON.stringify(bg)})`,
+        backgroundSize: "cover", backgroundPosition: "center", color: "#fff",
+      }
+    : undefined;
   return (
-    <section
-      className="mentra-block mentra-block-dynamic-hero"
-      data-align={align}
-      style={bg ? { backgroundImage: `url(${JSON.stringify(bg)})` } : undefined}
-    >
+    <section className={className} data-align={align} style={style}>
       <h1>{heading}</h1>
       {sub && <p>{sub}</p>}
       {(primary || secondary) && (
         <div className="mentra-block-actions">
-          {primary && <MaybeLink className="mentra-block-cta" text={primary} link={content.primaryCtaLink} context={context} />}
+          {primary && <MaybeLink className="mentra-block-cta" text={primary} link={primaryLink} context={context} />}
           {secondary && <MaybeLink className="mentra-block-cta mentra-block-cta-secondary" text={secondary} link={content.secondaryCtaLink} context={context} />}
         </div>
       )}
     </section>
+  );
+}
+
+export function HeroBlock({ content, context }: Props<HeroContent>) {
+  const c = content as unknown as Record<string, unknown>;
+  return (
+    <Hero content={c} context={context} className="mentra-block mentra-block-hero"
+      primaryText={c.ctaText} primaryLink={c.ctaLink} />
+  );
+}
+
+export function DynamicHeroBlock({ content, context }: Props<DynamicHeroContent>) {
+  const c = content as unknown as Record<string, unknown>;
+  return (
+    <Hero content={c} context={context} className="mentra-block mentra-block-dynamic-hero"
+      primaryText={c.primaryCtaText} primaryLink={c.primaryCtaLink} align={str(c.alignment)} />
   );
 }
 
