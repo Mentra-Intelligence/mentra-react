@@ -10,7 +10,7 @@
  * Every one returns `null` rather than an empty shell when the fields the
  * contract marks render-required are missing, and skips `null` list entries.
  */
-import { useEffect, useState, type HTMLAttributeReferrerPolicy, type ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type HTMLAttributeReferrerPolicy, type ReactNode } from "react";
 import { MentraContent } from "../MentraContent";
 import type { TipTapNode } from "../types";
 import type {
@@ -36,12 +36,22 @@ export interface Column { id?: string; blocks?: unknown[] }
 
 export interface HeroContent {
   heading: string; subheading?: string; ctaText?: string; ctaLink?: LinkValue | null;
+  /** Optional (Mentra #4977): a short line above the heading. */
+  eyebrow?: string;
+  /** Optional (Mentra #4977): inline HTML (bold, italic, links), sanitized by
+   * Mentra on save; shown instead of `subheading` when set. */
+  subheadingHtml?: string;
+  /** Optional (Mentra #4977): centred when absent. */
+  textAlign?: "left" | "center";
+  /** Optional (Mentra #5001): the same background, overlay and second button as `dynamic_hero`. */
+  backgroundImage?: string; overlayOpacity?: number | null;
+  secondaryCtaText?: string; secondaryCtaLink?: LinkValue | null;
 }
 export interface DynamicHeroContent {
   heading: string; subheading?: string; backgroundImage?: string;
   primaryCtaText?: string; primaryCtaLink?: LinkValue | null;
   secondaryCtaText?: string; secondaryCtaLink?: LinkValue | null;
-  alignment?: "left" | "center" | "right"; overlayOpacity?: number; height?: string;
+  alignment?: "left" | "center" | "right"; overlayOpacity?: number | null; height?: string;
 }
 export interface RichTextContent { html: string }
 export interface ImageContent { url: string; alt?: string }
@@ -110,13 +120,13 @@ function linkAttrs(link: unknown, context: PageRenderContext) {
 }
 
 /** A link if it resolves, otherwise plain text (never an `href`-less `<a>`). */
-function MaybeLink({ text, link, context, className }: {
-  text: string; link: unknown; context: PageRenderContext; className: string;
+function MaybeLink({ text, link, context, className, style }: {
+  text: string; link: unknown; context: PageRenderContext; className: string; style?: CSSProperties;
 }) {
   const attrs = linkAttrs(link, context);
   return attrs
-    ? <a className={className} {...attrs}>{text}</a>
-    : <span className={className}>{text}</span>;
+    ? <a className={className} {...attrs} style={style}>{text}</a>
+    : <span className={className} style={style}>{text}</span>;
 }
 
 function Title({ text }: { text: string | undefined }) {
@@ -133,43 +143,84 @@ const GRID_TEMPLATES: Record<string, string> = {
 
 // ---------------------------------------------------------------- defaults
 
-export function HeroBlock({ content, context }: Props<HeroContent>) {
+/** Overlay when none is stored, and the floor that keeps text over an image readable. */
+export const HERO_DEFAULT_OVERLAY = 0.55;
+export const HERO_MIN_TEXT_OVERLAY = 0.55;
+
+/** The darkening overlay for text over an image: always a finite number in [0.55, 1]. */
+export function heroOverlayOpacity(value: unknown): number {
+  const v = typeof value === "number" && Number.isFinite(value) ? value : HERO_DEFAULT_OVERLAY;
+  return Math.min(1, Math.max(HERO_MIN_TEXT_OVERLAY, v));
+}
+
+/**
+ * The one hero layout behind `hero` and `dynamic_hero` (Mentra #5001): the
+ * two stored types differ only in the primary button's field names. The
+ * background image is decorative (a CSS background, so it has no alt text),
+ * darkened enough for the white text on it to stay readable.
+ */
+function Hero({ content, context, className, primaryText, primaryLink, align, linkedButtonsOnly }: {
+  content: Record<string, unknown>; context: PageRenderContext; className: string;
+  primaryText: unknown; primaryLink: unknown; align?: string;
+  /** `hero` (Mentra #4977): a button shows only when its link resolves; no plain-text fallback. */
+  linkedButtonsOnly?: boolean;
+}) {
   const heading = str(content.heading);
   if (!heading) return null;
+  const eyebrow = str(content.eyebrow);
   const sub = str(content.subheading);
-  const cta = str(content.ctaText);
+  const subHtml = str(content.subheadingHtml);
+  const bg = context.resolveImage(str(content.backgroundImage));
+  const linked = (text: string | undefined, link: unknown) =>
+    text && (!linkedButtonsOnly || linkAttrs(link, context)) ? text : undefined;
+  const primary = linked(str(primaryText), primaryLink);
+  const secondary = linked(str(content.secondaryCtaText), content.secondaryCtaLink);
+  const shade = heroOverlayOpacity(content.overlayOpacity);
+  const style = bg
+    ? {
+        backgroundImage: `linear-gradient(rgba(0,0,0,${shade}), rgba(0,0,0,${shade})), url(${JSON.stringify(bg)})`,
+        backgroundSize: "cover", backgroundPosition: "center", color: "#fff",
+      }
+    : undefined;
+  // Links don't inherit the section's colour, so over an image they take it
+  // explicitly: otherwise they keep the browser's blue on the dark overlay.
+  const ctaStyle = bg ? { color: "inherit" } : undefined;
   return (
-    <section className="mentra-block mentra-block-hero">
+    <section className={className} data-align={align} style={style}>
+      {eyebrow && <p className="mentra-block-eyebrow">{eyebrow}</p>}
       <h1>{heading}</h1>
-      {sub && <p>{sub}</p>}
-      {cta && <MaybeLink className="mentra-block-cta" text={cta} link={content.ctaLink} context={context} />}
+      {subHtml ? <HeroSubheadingHtml html={subHtml} context={context} /> : sub && <p>{sub}</p>}
+      {(primary || secondary) && (
+        <div className="mentra-block-actions">
+          {primary && <MaybeLink className="mentra-block-cta" text={primary} link={primaryLink} context={context} style={ctaStyle} />}
+          {secondary && <MaybeLink className="mentra-block-cta mentra-block-cta-secondary" text={secondary} link={content.secondaryCtaLink} context={context} style={ctaStyle} />}
+        </div>
+      )}
     </section>
   );
 }
 
-export function DynamicHeroBlock({ content, context }: Props<DynamicHeroContent>) {
-  const heading = str(content.heading);
-  if (!heading) return null;
-  const sub = str(content.subheading);
-  const bg = context.resolveImage(str(content.backgroundImage));
-  const primary = str(content.primaryCtaText);
-  const secondary = str(content.secondaryCtaText);
-  const align = str(content.alignment);
+/** `subheadingHtml`: injected only through `sanitizeHtml`, otherwise its text. */
+function HeroSubheadingHtml({ html, context }: { html: string; context: PageRenderContext }) {
+  if (context.sanitizeHtml) return <p dangerouslySetInnerHTML={{ __html: context.sanitizeHtml(html) }} />;
+  const text = htmlToText(html);
+  return text ? <p>{text}</p> : null;
+}
+
+export function HeroBlock({ content, context }: Props<HeroContent>) {
+  const c = content as unknown as Record<string, unknown>;
   return (
-    <section
-      className="mentra-block mentra-block-dynamic-hero"
-      data-align={align}
-      style={bg ? { backgroundImage: `url(${JSON.stringify(bg)})` } : undefined}
-    >
-      <h1>{heading}</h1>
-      {sub && <p>{sub}</p>}
-      {(primary || secondary) && (
-        <div className="mentra-block-actions">
-          {primary && <MaybeLink className="mentra-block-cta" text={primary} link={content.primaryCtaLink} context={context} />}
-          {secondary && <MaybeLink className="mentra-block-cta mentra-block-cta-secondary" text={secondary} link={content.secondaryCtaLink} context={context} />}
-        </div>
-      )}
-    </section>
+    <Hero content={c} context={context} className="mentra-block mentra-block-hero"
+      primaryText={c.ctaText} primaryLink={c.ctaLink} linkedButtonsOnly
+      align={c.textAlign === "left" ? "left" : undefined} />
+  );
+}
+
+export function DynamicHeroBlock({ content, context }: Props<DynamicHeroContent>) {
+  const c = content as unknown as Record<string, unknown>;
+  return (
+    <Hero content={c} context={context} className="mentra-block mentra-block-dynamic-hero"
+      primaryText={c.primaryCtaText} primaryLink={c.primaryCtaLink} align={str(c.alignment)} />
   );
 }
 

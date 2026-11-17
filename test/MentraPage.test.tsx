@@ -405,3 +405,82 @@ describe("safeHref", () => {
     ["JaVaScRiPt:x", undefined], ["", undefined], [null, undefined],
   ])("%s → %s", (input, out) => expect(safeHref(input)).toBe(out));
 });
+
+describe("hero (Mentra #5001)", () => {
+  const bg = "https://img.test/bg.jpg";
+
+  it("renders hero's optional image, overlay and second button like dynamic_hero", () => {
+    const out = html(page([block("hero", {
+      heading: "Trust", ctaText: "Start", ctaLink: ext("https://x.test"),
+      backgroundImage: bg, overlayOpacity: 0.8, secondaryCtaText: "More", secondaryCtaLink: ext("/more"),
+    })]));
+    // Over the image the buttons take the white text colour, not link blue.
+    expect(out).toContain('<a class="mentra-block-cta" href="https://x.test" style="color:inherit">Start</a>');
+    expect(out).toContain('href="/more" style="color:inherit">More</a>');
+    expect(out).toContain("rgba(0,0,0,0.8)");
+    expect(out).toContain("color:#fff");
+  });
+
+  it("never renders a NaN or unreadably light overlay over an image", () => {
+    for (const overlayOpacity of [Number.NaN, 0.1, "0.9", null]) {
+      const out = html(page([block("dynamic_hero", { heading: "Big", backgroundImage: bg, overlayOpacity })]));
+      expect(out).toContain("rgba(0,0,0,0.55)");
+      expect(out).not.toContain("NaN");
+    }
+  });
+
+  it("adds no overlay or white text without an image", () => {
+    const out = html(page([block("hero", { heading: "Plain", overlayOpacity: 0.9 })]));
+    expect(out).not.toContain("style=");
+  });
+});
+
+describe("hero text and buttons (Mentra #4977)", () => {
+  const internal = (targetId: string) => ({ type: "internal", targetType: "page", targetId });
+  const resolveLink = (l: { targetId?: string; url?: string } | null) =>
+    l?.targetId ? `/p/${l.targetId}` : l?.url ?? null;
+
+  it("renders an eyebrow, left alignment and a sanitized linked subheading without a button", () => {
+    const subheadingHtml = 'See <a href="/p/a">security</a> and <a href="/p/b">privacy</a>.';
+    const out = html(page([block("hero", {
+      eyebrow: "Trust", heading: "Built to be trusted", textAlign: "left",
+      subheading: "Plain fallback", subheadingHtml,
+    })]), { sanitizeHtml: (h: string) => h, resolveLink });
+    expect(out).toContain('<section class="mentra-block mentra-block-hero" data-align="left">');
+    expect(out).toContain('<p class="mentra-block-eyebrow">Trust</p><h1>Built to be trusted</h1>');
+    expect(out).toContain(`<p>${subheadingHtml}</p>`);
+    expect(out).not.toContain("Plain fallback");
+    expect(out).not.toContain("mentra-block-actions");
+  });
+
+  it("renders the subheading's text, never its markup, without a sanitizer", () => {
+    const out = html(page([block("hero", {
+      heading: "H", subheadingHtml: 'Read <a href="/x">this</a><script>bad()</script>',
+    })]));
+    expect(out).toContain("<p>Read this");
+    expect(out).not.toContain("<a");
+    expect(out).not.toContain("<script");
+  });
+
+  it("keeps an existing hero's markup", () => {
+    const out = html(page([block("hero", { heading: "H", subheading: "S", ctaText: "Go", ctaLink: ext("https://x.test") })]));
+    expect(out).toContain('<section class="mentra-block mentra-block-hero"><h1>H</h1><p>S</p>');
+    expect(out).toContain('<a class="mentra-block-cta" href="https://x.test">Go</a>');
+  });
+
+  it("shows a hero button only with a label and a link that resolves", () => {
+    const hero = (extra: Record<string, unknown>) => html(page([block("hero", { heading: "H", ...extra })]));
+    expect(hero({ ctaText: "Go" })).not.toContain("Go");
+    expect(hero({ ctaText: "Go", ctaLink: ext("") })).not.toContain("Go");
+    expect(hero({ ctaLink: ext("https://x.test") })).not.toContain("x.test");
+    // An internal link needs resolveLink; without one there is no button.
+    expect(hero({ secondaryCtaText: "More", secondaryCtaLink: internal("a") })).not.toContain("More");
+    const linked = html(page([block("hero", { heading: "H", secondaryCtaText: "More", secondaryCtaLink: internal("a") })]), { resolveLink });
+    expect(linked).toContain('href="/p/a">More</a>');
+  });
+
+  it("leaves dynamic_hero's text-only buttons as they were", () => {
+    const out = html(page([block("dynamic_hero", { heading: "H", primaryCtaText: "Go" })]));
+    expect(out).toContain('<span class="mentra-block-cta">Go</span>');
+  });
+});

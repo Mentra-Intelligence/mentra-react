@@ -148,6 +148,20 @@ Block types: `hero` `dynamic_hero` `rich_text` `image` `video` `embed` `features
 component is skipped, so a page using a type newer than your package version
 still renders.
 
+`hero` and `dynamic_hero` share one default layout (Mentra #5001). Either can
+carry a background image, which is decorative and darkened by `overlayOpacity`,
+floored at 0.55 so the white text on it stays readable, plus a second button.
+Their buttons are `<a href>` links.
+
+A `hero` can also carry an `eyebrow` above the heading, `textAlign: "left"`
+(rendered as `data-align="left"`; centred otherwise) and a `subheadingHtml`
+with inline formatting and links, shown instead of `subheading` (Mentra #4977).
+Like `rich_text`, `subheadingHtml` is injected only through `sanitizeHtml`;
+without one its text is rendered. A `hero` button renders only when it has a
+label and a link that `resolveLink` resolves, so an internal link needs a
+`resolveLink`. A `dynamic_hero` button with no resolvable link still renders as
+plain text.
+
 ### Video and embed blocks
 
 `video` and `embed` render only what `/v1/pages` returns in the block's
