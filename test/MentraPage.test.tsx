@@ -473,10 +473,56 @@ describe("hero text and buttons (Mentra #4977)", () => {
     expect(hero({ ctaText: "Go" })).not.toContain("Go");
     expect(hero({ ctaText: "Go", ctaLink: ext("") })).not.toContain("Go");
     expect(hero({ ctaLink: ext("https://x.test") })).not.toContain("x.test");
-    // An internal link needs resolveLink; without one there is no button.
+    // An internal link without a url needs resolveLink; without one there is no button.
     expect(hero({ secondaryCtaText: "More", secondaryCtaLink: internal("a") })).not.toContain("More");
     const linked = html(page([block("hero", { heading: "H", secondaryCtaText: "More", secondaryCtaLink: internal("a") })]), { resolveLink });
     expect(linked).toContain('href="/p/a">More</a>');
+  });
+
+  it("links a hero button to a page link's url without resolveLink", () => {
+    const out = html(page([block("hero", { heading: "H", ctaText: "Pricing", ctaLink: { ...internal("p42"), slug: "pricing", url: "/pricing" } })]));
+    expect(out).toContain('<a class="mentra-block-cta" href="/pricing">Pricing</a>');
+  });
+
+  it("renders no hero button when a page link's url is null and there is no resolveLink", () => {
+    const out = html(page([block("hero", { heading: "H", ctaText: "Pricing", ctaLink: { ...internal("p42"), slug: null, url: null } })]));
+    expect(out).not.toContain("Pricing");
+    expect(out).not.toContain("href");
+    expect(out).not.toContain("mentra-block-actions");
+  });
+
+  it("uses resolveLink when a page link's url is null", () => {
+    const out = html(page([block("hero", { heading: "H", ctaText: "Pricing", ctaLink: { ...internal("p42"), slug: null, url: null } })]), { resolveLink });
+    expect(out).toContain('href="/p/p42">Pricing</a>');
+  });
+
+  it("prefers a page link's url over resolveLink", () => {
+    const calls: unknown[] = [];
+    const spy = (l: unknown) => { calls.push(l); return "/from-resolver"; };
+    const out = html(page([block("hero", { heading: "H", ctaText: "Pricing", ctaLink: { ...internal("p42"), slug: "pricing", url: "/pricing" } })]), { resolveLink: spy });
+    expect(out).toContain('href="/pricing">Pricing</a>');
+    expect(out).not.toContain("/from-resolver");
+    expect(calls).toEqual([]);
+  });
+
+  it("applies the same order to other blocks and to nested blocks", () => {
+    const link = { ...internal("p42"), url: "/pricing" };
+    const out = html(page([
+      block("cta", { heading: "C", buttonText: "Buy", buttonLink: link }),
+      block("columns", { columns: [{ blocks: [block("cta", { heading: "N", buttonText: "Nested", buttonLink: link })] }] }),
+      block("dynamic_hero", { heading: "D", primaryCtaText: "Start", primaryCtaLink: link }),
+    ]), { resolveLink: () => "/nope" });
+    expect(out).not.toContain("/nope");
+    expect(out.match(/href="\/pricing"/g)?.length).toBe(3);
+  });
+
+  it("does not treat a url on a non-page internal link, or an unsafe page url, as a route", () => {
+    const course = { type: "internal", targetType: "course", targetId: "c1", url: "/course" };
+    expect(html(page([block("cta", { heading: "C", buttonText: "Go", buttonLink: course })]))).not.toContain("href");
+    const unsafe = { ...internal("p42"), url: "javascript:alert(1)" };
+    const out = html(page([block("cta", { heading: "C", buttonText: "Go", buttonLink: unsafe })]), { resolveLink });
+    expect(out).not.toContain("href");
+    expect(out).not.toContain("javascript");
   });
 
   it("leaves dynamic_hero's text-only buttons as they were", () => {

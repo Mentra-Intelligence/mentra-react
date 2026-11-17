@@ -136,7 +136,7 @@ const Hero: BlockComponent<BlockContentMap["hero"]> = ({ content, context }) => 
 | `blocks` | defaults | Components by block type. `null` hides a type. A key the package doesn't know adds a type. |
 | `jsonLd` | `true` | Render the page's `jsonLd` as `<script type="application/ld+json">`. |
 | `sanitizeHtml` | none | Sanitiser for `rich_text` HTML. Without one, `rich_text` renders as plain text. |
-| `resolveLink` | external URLs with a safe scheme | `href` for a link. Internal links carry a target id, so they render as text until you map them to your routes. Pages are fetched by slug: map a page id to its slug with `GET /v1/pages`, whose summaries carry both. |
+| `resolveLink` | external URLs with a safe scheme | `href` for a link that has no `url` from the API. An internal page link from `/v1` carries `url` (`/{slug}`) when its target is a published page, and renders there without a `resolveLink`; `resolveLink` cannot override it. When that `url` is `null`, or for any other internal link (a target id, not a route), `resolveLink` decides; without one the link renders as text. |
 | `resolveItemHref` | none | `href` for a `dynamic_content` or `related_content` item: a standalone article, or a Section node (with its `nodeTypeKey`) when the block's `source` is `section` or a `related_content` block lists a node's siblings. Gets `(item, block)`. |
 | `renderContextBound` | `false` | Render blocks the response marks `contextBound`. |
 | `contentProps` | `{}` | Overrides forwarded to `MentraContent` for article bodies. |
@@ -158,9 +158,31 @@ A `hero` can also carry an `eyebrow` above the heading, `textAlign: "left"`
 with inline formatting and links, shown instead of `subheading` (Mentra #4977).
 Like `rich_text`, `subheadingHtml` is injected only through `sanitizeHtml`;
 without one its text is rendered. A `hero` button renders only when it has a
-label and a link that `resolveLink` resolves, so an internal link needs a
-`resolveLink`. A `dynamic_hero` button with no resolvable link still renders as
-plain text.
+label and a link that resolves: a page link's `url`, or failing that what
+`resolveLink` returns. With neither there is no button. A `dynamic_hero` button
+with no resolvable link still renders as plain text.
+
+### Page links
+
+`/v1` adds a read-only `slug` and `url` to every internal page link in a
+block, at any depth (Mentra #5021):
+
+```json
+{ "type": "internal", "targetType": "page", "targetId": "p42", "slug": "pricing", "url": "/pricing" }
+```
+
+Both are `null` when the target is not a published page. Every default block,
+and every override that calls `context.resolveLink`, picks a page link's `href`
+in this order (Mentra #5038):
+
+1. `url`, when it is a non-empty string (and its scheme is safe).
+2. Otherwise `resolveLink`, if you passed one.
+3. Otherwise no link: the text renders without one, and a `hero` button is left out.
+
+`resolveLink` cannot override a `url`: the API's route is the page's route.
+If your pages live under another path, serve them at `/{slug}` too or rewrite
+the `href` in a block override. Links to anything other than a page carry no
+`url` and still go through `resolveLink`.
 
 ### Video and embed blocks
 

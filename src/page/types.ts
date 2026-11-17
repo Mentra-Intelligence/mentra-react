@@ -15,8 +15,14 @@ export interface LinkValue {
   targetType?: "page" | "course" | "journey" | "step";
   /** Id (not slug) of the internal target. */
   targetId?: string;
-  /** URL of an external link. */
-  url?: string;
+  /**
+   * URL of an external link. On an internal page link, `/v1` sets it to the
+   * target's route (`/{slug}`), or `null` when the target is not a published
+   * page; `MentraPage` uses it ahead of `resolveLink` (Mentra #5038).
+   */
+  url?: string | null;
+  /** Slug of an internal page link's target, set by `/v1`; `null` when the target is not a published page. */
+  slug?: string | null;
   /** Layout hint: open in a new tab. */
   openInNewTab?: boolean;
 }
@@ -169,7 +175,11 @@ export interface PageRenderContext {
   theme: MentraPageTheme;
   /** The full page response being rendered. */
   page: PageResponse;
-  /** `href` for a `LinkValue`, or `undefined` for no link. */
+  /**
+   * `href` for a `LinkValue`, or `undefined` for no link. An internal page
+   * link with a `url` gets that `url`; otherwise the site's `resolveLink`
+   * decides.
+   */
   resolveLink: (link: LinkValue | null | undefined) => string | undefined;
   /** `src` for an image URL from block content, or `undefined` to drop the image. */
   resolveImage: (url: string | undefined) => string | undefined;
