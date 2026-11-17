@@ -36,6 +36,13 @@ export interface Column { id?: string; blocks?: unknown[] }
 
 export interface HeroContent {
   heading: string; subheading?: string; ctaText?: string; ctaLink?: LinkValue | null;
+  /** Optional (Mentra #4977): a short line above the heading. */
+  eyebrow?: string;
+  /** Optional (Mentra #4977): inline HTML (bold, italic, links), sanitized by
+   * Mentra on save; shown instead of `subheading` when set. */
+  subheadingHtml?: string;
+  /** Optional (Mentra #4977): centred when absent. */
+  textAlign?: "left" | "center";
   /** Optional (Mentra #5001): the same background, overlay and second button as `dynamic_hero`. */
   backgroundImage?: string; overlayOpacity?: number | null;
   secondaryCtaText?: string; secondaryCtaLink?: LinkValue | null;
@@ -150,16 +157,22 @@ export function heroOverlayOpacity(value: unknown): number {
  * background image is decorative (a CSS background, so it has no alt text),
  * darkened enough for the white text on it to stay readable.
  */
-function Hero({ content, context, className, primaryText, primaryLink, align }: {
+function Hero({ content, context, className, primaryText, primaryLink, align, linkedButtonsOnly }: {
   content: Record<string, unknown>; context: PageRenderContext; className: string;
   primaryText: unknown; primaryLink: unknown; align?: string;
+  /** `hero` (Mentra #4977): a button shows only when its link resolves; no plain-text fallback. */
+  linkedButtonsOnly?: boolean;
 }) {
   const heading = str(content.heading);
   if (!heading) return null;
+  const eyebrow = str(content.eyebrow);
   const sub = str(content.subheading);
+  const subHtml = str(content.subheadingHtml);
   const bg = context.resolveImage(str(content.backgroundImage));
-  const primary = str(primaryText);
-  const secondary = str(content.secondaryCtaText);
+  const linked = (text: string | undefined, link: unknown) =>
+    text && (!linkedButtonsOnly || linkAttrs(link, context)) ? text : undefined;
+  const primary = linked(str(primaryText), primaryLink);
+  const secondary = linked(str(content.secondaryCtaText), content.secondaryCtaLink);
   const shade = heroOverlayOpacity(content.overlayOpacity);
   const style = bg
     ? {
@@ -172,8 +185,9 @@ function Hero({ content, context, className, primaryText, primaryLink, align }: 
   const ctaStyle = bg ? { color: "inherit" } : undefined;
   return (
     <section className={className} data-align={align} style={style}>
+      {eyebrow && <p className="mentra-block-eyebrow">{eyebrow}</p>}
       <h1>{heading}</h1>
-      {sub && <p>{sub}</p>}
+      {subHtml ? <HeroSubheadingHtml html={subHtml} context={context} /> : sub && <p>{sub}</p>}
       {(primary || secondary) && (
         <div className="mentra-block-actions">
           {primary && <MaybeLink className="mentra-block-cta" text={primary} link={primaryLink} context={context} style={ctaStyle} />}
@@ -184,11 +198,19 @@ function Hero({ content, context, className, primaryText, primaryLink, align }: 
   );
 }
 
+/** `subheadingHtml`: injected only through `sanitizeHtml`, otherwise its text. */
+function HeroSubheadingHtml({ html, context }: { html: string; context: PageRenderContext }) {
+  if (context.sanitizeHtml) return <p dangerouslySetInnerHTML={{ __html: context.sanitizeHtml(html) }} />;
+  const text = htmlToText(html);
+  return text ? <p>{text}</p> : null;
+}
+
 export function HeroBlock({ content, context }: Props<HeroContent>) {
   const c = content as unknown as Record<string, unknown>;
   return (
     <Hero content={c} context={context} className="mentra-block mentra-block-hero"
-      primaryText={c.ctaText} primaryLink={c.ctaLink} />
+      primaryText={c.ctaText} primaryLink={c.ctaLink} linkedButtonsOnly
+      align={c.textAlign === "left" ? "left" : undefined} />
   );
 }
 
