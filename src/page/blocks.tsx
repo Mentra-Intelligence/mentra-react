@@ -10,14 +10,15 @@
  * Every one returns `null` rather than an empty shell when the fields the
  * contract marks render-required are missing, and skips `null` list entries.
  */
-import { useEffect, useState, type CSSProperties, type HTMLAttributeReferrerPolicy, type ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { MentraContent } from "../MentraContent";
 import type { TipTapNode } from "../types";
 import type {
   BlockComponent, BlockProps, DynamicItem, FormResolved, LinkValue, PageBlock, PageRenderContext,
-  ResolvedMedia,
 } from "./types";
 import { htmlToText, str, strList, list } from "./util";
+import { httpsUrl, mediaFrame, videoFigure, videoNeedsMotionCheck } from "./media";
+import { MotionVideo } from "./motion";
 
 // ---------------------------------------------------------------- content
 
@@ -255,10 +256,7 @@ export function ImageBlock({ content, context }: Props<ImageContent>) {
   );
 }
 
-// Media (`video`, `embed`). Mentra checks the URL against its allowlist and
-// returns what to play in `block.resolved`; these components use only that.
-// A frame's `src` is never built from `content.url`, and its `sandbox`,
-// `allow` and `referrerPolicy` are copied from `resolved` unchanged.
+// Media (`video`, `embed`): the markup and its safety rules are in `media.tsx`.
 
 const ASPECT_RATIOS: Record<string, string> = {
   "16:9": "16 / 9", "4:3": "4 / 3", "1:1": "1 / 1", "9:16": "9 / 16",
@@ -269,92 +267,18 @@ function ratio(value: unknown): string {
   return key && Object.prototype.hasOwnProperty.call(ASPECT_RATIOS, key) ? ASPECT_RATIOS[key] : ASPECT_RATIOS["16:9"];
 }
 
-/**
- * Whether the visitor asked their OS for reduced motion. `true` until the
- * browser has said otherwise, so a server render never autoplays.
- */
-function usePrefersReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(true);
-  useEffect(() => {
-    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
-    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const update = () => setReduced(query.matches);
-    update();
-    query.addEventListener?.("change", update);
-    return () => query.removeEventListener?.("change", update);
-  }, []);
-  return reduced;
-}
-
-function httpsUrl(value: unknown): string | undefined {
-  const s = str(value);
-  return s && /^https:\/\//i.test(s) ? s : undefined;
-}
-
-/**
- * The provider frame for `resolved`, or `null` when it can't be framed safely.
- * A plain function, not a component, so the block can return `null` itself
- * instead of an empty `<figure>`.
- */
-function mediaFrame(
-  r: Partial<ResolvedMedia>, title: string, aspectRatio: string, reducedMotion = false,
-): ReactNode {
-  // An autoplaying player has a still twin for a reduced-motion visitor.
-  const src = httpsUrl(reducedMotion && r.reducedMotionEmbedUrl ? r.reducedMotionEmbedUrl : r.embedUrl);
-  // A fixed-height player (Spotify) gets its height instead of a shape.
-  const height = typeof r.height === "number" && r.height > 0 ? r.height : undefined;
-  // Without a sandbox string the frame would get full rights, so don't render it.
-  if (!src || typeof r.sandbox !== "string") return null;
-  return (
-    <iframe
-      src={src}
-      title={title}
-      sandbox={r.sandbox}
-      allow={typeof r.allow === "string" ? r.allow : undefined}
-      referrerPolicy={typeof r.referrerPolicy === "string" ? (r.referrerPolicy as HTMLAttributeReferrerPolicy) : undefined}
-      loading="lazy"
-      style={height ? { width: "100%", border: 0, height } : { width: "100%", border: 0, aspectRatio }}
-    />
-  );
-}
-
 export function VideoBlock({ block, content }: Props<VideoContent>) {
   const r = block.resolved;
-  const reducedMotion = usePrefersReducedMotion();
   if (!r || typeof r !== "object") return null;
-  const title = str(content.title);
-  let body: ReactNode;
-  if (r.provider === "file") {
-    const src = httpsUrl(r.fileUrl);
-    if (!src) return null;
-    const autoplay = content.autoplay === true && !reducedMotion;
-    // No `crossOrigin`: it would put the video request in CORS mode, and a
-    // host without CORS headers would then stop the video loading. So the
-    // track loads when the browser allows it without CORS (same origin) and
-    // otherwise the video plays without captions.
-    const captions = httpsUrl(content.captionsUrl);
-    body = (
-      <video
-        // Remount once the browser allows motion: a late `autoPlay` doesn't start playback.
-        key={autoplay ? "autoplay" : "still"}
-        src={src}
-        controls
-        poster={httpsUrl(content.poster)}
-        muted={autoplay || undefined}
-        autoPlay={autoplay || undefined}
-        playsInline={autoplay || undefined}
-        loop={content.loop === true || undefined}
-        aria-label={title}
-        style={{ width: "100%" }}
-      >
-        {captions && <track kind="captions" src={captions} label="Captions" default />}
-      </video>
-    );
-  } else {
-    body = mediaFrame(r, title ?? "Video", ratio(content.aspectRatio), reducedMotion);
-    if (!body) return null;
+  const aspectRatio = ratio(content.aspectRatio);
+  // Only output that depends on reduced motion needs the client component;
+  // everything else renders on the server with no hooks.
+  if (videoNeedsMotionCheck(r, content)) {
+    // Return `null` here, not an empty client boundary, when nothing can play.
+    if (!videoFigure(r, content, aspectRatio, true)) return null;
+    return <MotionVideo resolved={r} content={content} aspectRatio={aspectRatio} />;
   }
-  return <figure className="mentra-block mentra-block-video">{body}</figure>;
+  return videoFigure(r, content, aspectRatio, false);
 }
 
 export function EmbedBlock({ block, content }: Props<EmbedContent>) {
