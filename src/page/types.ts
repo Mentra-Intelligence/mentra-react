@@ -92,6 +92,10 @@ export interface ResolvedMedia {
   sandbox?: string;
   allow?: string;
   referrerPolicy?: string;
+  /** A fixed player height in px (Spotify); frame at this height, not an aspect ratio. */
+  height?: number;
+  /** `embedUrl` without autoplay, present when autoplay was applied: use it for a reduced-motion visitor. */
+  reducedMotionEmbedUrl?: string;
 }
 
 /**

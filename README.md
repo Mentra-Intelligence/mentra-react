@@ -172,10 +172,17 @@ plain text.
   and `referrerPolicy` are copied from `resolved` unchanged, with
   `loading="lazy"`. The frame is never built from `content.url`. An `embed`
   takes its shape from `aspectRatio` (`16:9`, the default, `4:3`, `1:1` or
-  `9:16`); a `video` frame is 16:9.
+  `9:16`); so does a `video` frame (default 16:9). A fixed-height player
+  (Spotify) has `resolved.height` in px and is framed at that height instead.
 - A video file (`resolved.provider === "file"`) renders `<video controls>`
   from `resolved.fileUrl`, with `poster`, a captions `<track>`, and
   `muted autoPlay playsInline` / `loop` when the block asks for them.
+- Nothing autoplays for a visitor whose OS asks for reduced motion
+  (`prefers-reduced-motion: reduce`). When Mentra applied autoplay to a
+  provider URL it also returns `resolved.reducedMotionEmbedUrl`, the same
+  player without it, and the frame uses that for such a visitor. The server
+  render can't know the preference, so it never autoplays; autoplay starts
+  after hydration when the browser allows motion.
 - `resolved: null` (the stored URL failed the check) renders nothing.
 
 The default `<video>` sets no `crossOrigin`, because CORS mode would stop the

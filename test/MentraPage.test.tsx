@@ -226,6 +226,25 @@ describe("MentraPage", () => {
       expect(attrs(html(page([block("embed", { url: "u", aspectRatio: "2:1" }, { resolved: YT })]))).style).toContain("aspect-ratio:16 / 9");
     });
 
+    it("frames the still twin of an autoplaying player until the browser allows motion", () => {
+      const auto = { ...YT, embedUrl: `${YT.embedUrl}?autoplay=1&mute=1`, reducedMotionEmbedUrl: YT.embedUrl };
+      const a = attrs(html(page([block("video", { url: "u", autoplay: true }, { resolved: auto })])));
+      expect(a.src).toBe(YT.embedUrl);
+      // Only Mentra's https URL is used; a bad twin falls back to nothing, not content.url.
+      const bad = { ...auto, reducedMotionEmbedUrl: "javascript:alert(1)" };
+      expect(html(page([block("video", { url: "https://evil.test/x" }, { resolved: bad })]))).not.toContain("<iframe");
+    });
+
+    it("sizes a fixed-height player by resolved.height and a provider video by aspectRatio", () => {
+      const spotify = { ...YT, provider: "spotify", embedUrl: "https://open.spotify.com/embed/track/abc", height: 152 };
+      expect(attrs(html(page([block("embed", { url: "u", aspectRatio: "1:1" }, { resolved: spotify })]))).style)
+        .toBe("width:100%;border:0;height:152px");
+      expect(attrs(html(page([block("video", { url: "u", aspectRatio: "9:16" }, { resolved: YT })]))).style)
+        .toBe("width:100%;border:0;aspect-ratio:9 / 16");
+      expect(attrs(html(page([block("video", { url: "u", aspectRatio: "constructor" }, { resolved: YT })]))).style)
+        .toContain("aspect-ratio:16 / 9");
+    });
+
     it("plays an .mp4 with <video>, not a frame", () => {
       const out = html(page([block("video", { url: MP4.fileUrl }, { resolved: MP4 })]));
       expect(out).toContain('<video src="https://cdn.test/clip.mp4" controls=""');
@@ -234,12 +253,14 @@ describe("MentraPage", () => {
       expect(out).not.toContain("<track");
     });
 
-    it("adds poster, captions, autoplay (muted) and loop to a video file", () => {
+    it("adds poster, captions and loop to a video file, and never autoplays on the server", () => {
       const out = html(page([block("video", {
         url: MP4.fileUrl, title: "Demo", poster: "https://cdn.test/p.jpg", captionsUrl: "https://cdn.test/c.vtt", autoplay: true, loop: true,
       }, { resolved: MP4 })]));
       expect(out).toContain('poster="https://cdn.test/p.jpg"');
-      expect(out).toContain('muted="" autoPlay="" playsInline="" loop=""');
+      // Reduced motion is unknown until the browser says, so a server render holds still.
+      expect(out).toContain('loop=""');
+      expect(out).not.toContain("autoPlay");
       expect(out).toContain('aria-label="Demo"');
       expect(out).toContain('<track kind="captions" src="https://cdn.test/c.vtt"');
       // No CORS mode, so a video host without CORS headers still plays.

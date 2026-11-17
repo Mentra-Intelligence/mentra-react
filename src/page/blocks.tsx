@@ -10,7 +10,7 @@
  * Every one returns `null` rather than an empty shell when the fields the
  * contract marks render-required are missing, and skips `null` list entries.
  */
-import type { CSSProperties, HTMLAttributeReferrerPolicy, ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type HTMLAttributeReferrerPolicy, type ReactNode } from "react";
 import { MentraContent } from "../MentraContent";
 import type { TipTapNode } from "../types";
 import type {
@@ -61,6 +61,8 @@ export interface VideoContent {
   autoplay?: boolean;
   /** Hint: restart when it ends. */
   loop?: boolean;
+  /** Hint: frame shape for a provider video, default `16:9`; a video file keeps its own. */
+  aspectRatio?: "16:9" | "4:3" | "1:1" | "9:16";
 }
 export interface EmbedContent {
   url: string; title?: string;
@@ -262,6 +264,28 @@ const ASPECT_RATIOS: Record<string, string> = {
   "16:9": "16 / 9", "4:3": "4 / 3", "1:1": "1 / 1", "9:16": "9 / 16",
 };
 
+function ratio(value: unknown): string {
+  const key = str(value);
+  return key && Object.prototype.hasOwnProperty.call(ASPECT_RATIOS, key) ? ASPECT_RATIOS[key] : ASPECT_RATIOS["16:9"];
+}
+
+/**
+ * Whether the visitor asked their OS for reduced motion. `true` until the
+ * browser has said otherwise, so a server render never autoplays.
+ */
+function usePrefersReducedMotion(): boolean {
+  const [reduced, setReduced] = useState(true);
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => setReduced(query.matches);
+    update();
+    query.addEventListener?.("change", update);
+    return () => query.removeEventListener?.("change", update);
+  }, []);
+  return reduced;
+}
+
 function httpsUrl(value: unknown): string | undefined {
   const s = str(value);
   return s && /^https:\/\//i.test(s) ? s : undefined;
@@ -272,8 +296,13 @@ function httpsUrl(value: unknown): string | undefined {
  * A plain function, not a component, so the block can return `null` itself
  * instead of an empty `<figure>`.
  */
-function mediaFrame(r: Partial<ResolvedMedia>, title: string, aspectRatio: string): ReactNode {
-  const src = httpsUrl(r.embedUrl);
+function mediaFrame(
+  r: Partial<ResolvedMedia>, title: string, aspectRatio: string, reducedMotion = false,
+): ReactNode {
+  // An autoplaying player has a still twin for a reduced-motion visitor.
+  const src = httpsUrl(reducedMotion && r.reducedMotionEmbedUrl ? r.reducedMotionEmbedUrl : r.embedUrl);
+  // A fixed-height player (Spotify) gets its height instead of a shape.
+  const height = typeof r.height === "number" && r.height > 0 ? r.height : undefined;
   // Without a sandbox string the frame would get full rights, so don't render it.
   if (!src || typeof r.sandbox !== "string") return null;
   return (
@@ -284,20 +313,21 @@ function mediaFrame(r: Partial<ResolvedMedia>, title: string, aspectRatio: strin
       allow={typeof r.allow === "string" ? r.allow : undefined}
       referrerPolicy={typeof r.referrerPolicy === "string" ? (r.referrerPolicy as HTMLAttributeReferrerPolicy) : undefined}
       loading="lazy"
-      style={{ width: "100%", border: 0, aspectRatio }}
+      style={height ? { width: "100%", border: 0, height } : { width: "100%", border: 0, aspectRatio }}
     />
   );
 }
 
 export function VideoBlock({ block, content }: Props<VideoContent>) {
   const r = block.resolved;
+  const reducedMotion = usePrefersReducedMotion();
   if (!r || typeof r !== "object") return null;
   const title = str(content.title);
   let body: ReactNode;
   if (r.provider === "file") {
     const src = httpsUrl(r.fileUrl);
     if (!src) return null;
-    const autoplay = content.autoplay === true;
+    const autoplay = content.autoplay === true && !reducedMotion;
     // No `crossOrigin`: it would put the video request in CORS mode, and a
     // host without CORS headers would then stop the video loading. So the
     // track loads when the browser allows it without CORS (same origin) and
@@ -305,6 +335,8 @@ export function VideoBlock({ block, content }: Props<VideoContent>) {
     const captions = httpsUrl(content.captionsUrl);
     body = (
       <video
+        // Remount once the browser allows motion: a late `autoPlay` doesn't start playback.
+        key={autoplay ? "autoplay" : "still"}
         src={src}
         controls
         poster={httpsUrl(content.poster)}
@@ -319,7 +351,7 @@ export function VideoBlock({ block, content }: Props<VideoContent>) {
       </video>
     );
   } else {
-    body = mediaFrame(r, title ?? "Video", ASPECT_RATIOS["16:9"]);
+    body = mediaFrame(r, title ?? "Video", ratio(content.aspectRatio), reducedMotion);
     if (!body) return null;
   }
   return <figure className="mentra-block mentra-block-video">{body}</figure>;
@@ -328,11 +360,7 @@ export function VideoBlock({ block, content }: Props<VideoContent>) {
 export function EmbedBlock({ block, content }: Props<EmbedContent>) {
   const r = block.resolved;
   if (!r || typeof r !== "object" || r.provider === "file") return null;
-  const key = str(content.aspectRatio);
-  const ratio = key && Object.prototype.hasOwnProperty.call(ASPECT_RATIOS, key)
-    ? ASPECT_RATIOS[key]
-    : ASPECT_RATIOS["16:9"];
-  const frame = mediaFrame(r, str(content.title) ?? "Embedded content", ratio);
+  const frame = mediaFrame(r, str(content.title) ?? "Embedded content", ratio(content.aspectRatio));
   if (!frame) return null;
   return <figure className="mentra-block mentra-block-embed">{frame}</figure>;
 }
