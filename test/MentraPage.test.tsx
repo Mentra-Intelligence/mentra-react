@@ -324,6 +324,18 @@ describe("MentraPage", () => {
       expect(out).toContain('<input type="checkbox" required=""/>');
     });
 
+    it("names the consent box after a Mailchimp marketing permission, with consentValue", () => {
+      const mc = {
+        ...HOOK, type: "mailchimp", submitUrl: "https://x.us21.list-manage.com/subscribe/post?u=abcdef0123&id=abc123",
+        fieldNames: { email: "EMAIL", name: "FNAME", consent: "gdpr[12345]" }, consentValue: "Y", honeypotField: "b_abcdef0123_abc123",
+      };
+      expect(formHtml(mc)).toContain('<input type="checkbox" required="" name="gdpr[12345]" value="Y"/>');
+      // consentValue: null, or a malformed one: the box only gates the submit.
+      for (const consentValue of [null, "", 7]) {
+        expect(formHtml({ ...mc, consentValue })).toContain('<input type="checkbox" required=""/>');
+      }
+    });
+
     it("leaves a live HubSpot form to a client override", () => {
       const hs = { ...HOOK, type: "hubspot", encoding: "json", submitUrl: "https://api.hsforms.com/submissions/v3/integration/submit/1/x" };
       expect(formHtml(hs)).toBe('<div class="mentra-page"></div>');

@@ -232,8 +232,8 @@ A `form` block is a newsletter sign-up whose submission goes from the
 visitor's browser straight to the tenant's own service: Mentra never
 receives or stores what a visitor types. `/v1/pages` puts how to submit in
 the block's `resolved` (`type`, `submitUrl`, `fieldNames`, `honeypotField`,
-`preview`); the block's `content` holds the labels and only public
-identifiers, never an API key.
+`preview`, `consentValue`, `legalConsentOptions`); the block's `content`
+holds the labels and only public identifiers, never an API key.
 
 The default `FormBlock` is a native HTML form, so it needs no client script:
 
@@ -249,6 +249,15 @@ The default `FormBlock` is a native HTML form, so it needs no client script:
   `https` `submitUrl`.
 - `resolved: null` (no destination, or one Mentra's checks refuse) renders
   nothing.
+
+A ticked consent box records the visitor's consent at the destination
+(Mentra #5080). When `resolved.fieldNames.consent` is set, the box sends
+`resolved.consentValue` under that name: Mailchimp gets
+`gdpr[<permission id>]=Y`, a webhook gets `consent=yes`. HubSpot gets
+`resolved.legalConsentOptions` in its JSON body. With `consentValue: null`
+(or `legalConsentOptions: null`), or an unticked box, no consent is sent and
+the box only gates the submit. The default `FormBlock` names the checkbox
+this way; `submitMentraForm` does the same when you pass `consent: true`.
 
 Every form carries a honeypot: a hidden input named `resolved.honeypotField`,
 off-screen in an `aria-hidden` wrapper with `tabIndex={-1}`. People leave it
