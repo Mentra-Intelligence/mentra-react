@@ -225,9 +225,24 @@ export function DynamicHeroBlock({ content, context }: Props<DynamicHeroContent>
   );
 }
 
+/** The sample paragraph blocks added before Mentra #4995 may still carry. */
+const RICH_TEXT_SAMPLE = "<p>Start typing your content here...</p>";
+const RICH_TEXT_MEDIA = /<(img|iframe|video|audio|hr|table|svg|picture)\b/i;
+
+/**
+ * True when rich_text html has nothing to show: the sample paragraph, or
+ * no text once tags, `&nbsp;` and whitespace are stripped and no media markup.
+ * Mirrors Mentra's `frontend/src/components/RichTextBlock.tsx`.
+ */
+function isEmptyRichText(html: string): boolean {
+  if (html.trim() === RICH_TEXT_SAMPLE) return true;
+  if (RICH_TEXT_MEDIA.test(html)) return false;
+  return html.replace(/<[^>]*>/g, "").replace(/&nbsp;/gi, "").trim() === "";
+}
+
 export function RichTextBlock({ content, context }: Props<RichTextContent>) {
   const html = str(content.html);
-  if (!html) return null;
+  if (!html || isEmptyRichText(html)) return null;
   if (context.sanitizeHtml) {
     return (
       <div
