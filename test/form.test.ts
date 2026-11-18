@@ -106,3 +106,74 @@ describe("submitMentraForm", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 });
+
+describe("submitMentraForm consent (Mentra #5080)", () => {
+  const MC_GDPR: FormResolved = { ...MAILCHIMP, fieldNames: { ...MAILCHIMP.fieldNames, consent: "gdpr[12345]" }, consentValue: "Y" };
+  const LEGAL = {
+    consent: {
+      consentToProcess: true, text: "I agree",
+      communications: [{ value: true, subscriptionTypeId: 999, text: "Newsletter" }],
+    },
+  };
+  const HS_LEGAL: FormResolved = { ...HUBSPOT, legalConsentOptions: LEGAL };
+  const HOOK_V: FormResolved = { ...HOOK, consentValue: "yes" };
+
+  it("posts gdpr[id]=Y to Mailchimp when the box is ticked", async () => {
+    const { scripts } = stubPage({ result: "success" });
+    await submitMentraForm(MC_GDPR, { email: "ada@example.com", consent: true });
+    expect(new URL(scripts[0].src).searchParams.get("gdpr[12345]")).toBe("Y");
+  });
+
+  it("posts legalConsentOptions to HubSpot when the box is ticked", async () => {
+    const fetch = stubFetch();
+    await submitMentraForm(HS_LEGAL, { email: "ada@example.com", consent: true }, { pageUri: "u", pageName: "n" });
+    const [, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toEqual({
+      fields: [{ name: "email", value: "ada@example.com" }],
+      context: { pageUri: "u", pageName: "n" },
+      legalConsentOptions: LEGAL,
+    });
+  });
+
+  it("posts consent=yes to a webhook from consentValue", async () => {
+    const fetch = stubFetch();
+    await submitMentraForm(HOOK_V, { email: "ada@example.com", consent: true });
+    const [, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
+    expect(String(init.body)).toBe("email=ada%40example.com&consent=yes&_gotcha=");
+  });
+
+  it("posts as before when the box is unticked or there is no mapping", async () => {
+    const { scripts } = stubPage({ result: "success" });
+    for (const [resolved, consent] of [
+      [MC_GDPR, false], [MC_GDPR, undefined], [{ ...MC_GDPR, consentValue: null }, true],
+      [{ ...MC_GDPR, fieldNames: { ...MC_GDPR.fieldNames, consent: null } }, true],
+      [{ ...MC_GDPR, consentValue: 1 as never }, true], [{ ...MC_GDPR, consentValue: "" }, true],
+    ] as [FormResolved, boolean | undefined][]) {
+      await submitMentraForm(resolved, { email: "ada@example.com", consent });
+    }
+    expect(scripts).toHaveLength(6);
+    for (const s of scripts) {
+      expect([...new URL(s.src).searchParams.keys()]).toEqual(["u", "id", "EMAIL", "b_abc_def", "c"]);
+    }
+    vi.unstubAllGlobals(); // the fake page has no `location` for HubSpot's context
+
+    for (const [resolved, consent] of [
+      [HS_LEGAL, false], [HS_LEGAL, undefined], [{ ...HUBSPOT, legalConsentOptions: null }, true], [HUBSPOT, true],
+      [{ ...HUBSPOT, legalConsentOptions: "x" as never }, true], [{ ...HUBSPOT, legalConsentOptions: [] as never }, true],
+    ] as [FormResolved, boolean | undefined][]) {
+      const fetch = stubFetch();
+      await submitMentraForm(resolved, { email: "ada@example.com", consent }, { pageUri: "u", pageName: "n" });
+      const [, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
+      expect(JSON.parse(String(init.body))).toEqual({
+        fields: [{ name: "email", value: "ada@example.com" }], context: { pageUri: "u", pageName: "n" },
+      });
+    }
+
+    for (const [resolved, consent] of [[HOOK_V, false], [{ ...HOOK, consentValue: null }, true]] as [FormResolved, boolean][]) {
+      const fetch = stubFetch();
+      await submitMentraForm(resolved, { email: "ada@example.com", consent });
+      const [, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
+      expect(String(init.body)).toBe("email=ada%40example.com&_gotcha=");
+    }
+  });
+});

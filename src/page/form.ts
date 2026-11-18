@@ -12,6 +12,10 @@
  *   Your `script-src` CSP must allow the `list-manage.com` host; any other
  *   host is refused, since the reply runs as script.
  * - `hubspot`: a JSON POST; a non-2xx reply throws.
+ *
+ * A ticked consent box is sent as `resolved.consentValue` under
+ * `resolved.fieldNames.consent` (Mailchimp `gdpr[<id>]=Y`, webhook
+ * `consent=yes`), and to HubSpot as `resolved.legalConsentOptions`.
  */
 import type { FormResolved } from "./types";
 
@@ -32,6 +36,31 @@ export interface MentraFormOptions {
 
 /** `"sent"`: submitted. `"skipped"`: the honeypot was filled, so nothing was sent; show success anyway. */
 export type MentraFormResult = "sent" | "skipped";
+
+/**
+ * The consent field a ticked box sends, from `resolved`, or `null` for none:
+ * no field name, or `consentValue: null` (the service takes no consent
+ * field). A `resolved` from a Mentra older than #5080 has no `consentValue`
+ * key; it keeps sending `"yes"`, as before.
+ */
+export function formConsentField(
+  resolved: Partial<FormResolved> | null | undefined,
+): { name: string; value: string } | null {
+  if (!resolved) return null;
+  const name = resolved.fieldNames?.consent;
+  if (typeof name !== "string" || !name) return null;
+  const value = resolved.consentValue;
+  if (value === undefined) return { name, value: "yes" };
+  return typeof value === "string" && value ? { name, value } : null;
+}
+
+/** HubSpot's `legalConsentOptions` from `resolved`, or `null` unless it is a plain object. */
+export function formLegalConsentOptions(
+  resolved: Partial<FormResolved> | null | undefined,
+): Record<string, unknown> | null {
+  const options = resolved?.legalConsentOptions;
+  return options && typeof options === "object" && !Array.isArray(options) ? options : null;
+}
 
 function liveUrl(value: unknown): string {
   if (typeof value !== "string" || !/^https:\/\//i.test(value)) {
@@ -99,13 +128,16 @@ export async function submitMentraForm(
     if (name && f.name) fields.push({ name: f.name, value: name });
     const loc = typeof window !== "undefined" ? window.location.href : undefined;
     const title = typeof document !== "undefined" ? document.title : undefined;
+    const body: Record<string, unknown> = {
+      fields,
+      context: { pageUri: options.pageUri ?? loc, pageName: options.pageName ?? title },
+    };
+    const legalConsentOptions = values.consent ? formLegalConsentOptions(resolved) : null;
+    if (legalConsentOptions) body.legalConsentOptions = legalConsentOptions;
     const res = await fetch(liveUrl(resolved.submitUrl), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        fields,
-        context: { pageUri: options.pageUri ?? loc, pageName: options.pageName ?? title },
-      }),
+      body: JSON.stringify(body),
     });
     if (!res.ok) throw new Error(`HubSpot refused the submission (${res.status}).`);
     return "sent";
@@ -113,7 +145,8 @@ export async function submitMentraForm(
 
   const params = new URLSearchParams({ [f.email]: values.email });
   if (name && f.name) params.set(f.name, name);
-  if (values.consent && f.consent) params.set(f.consent, "yes");
+  const consent = values.consent ? formConsentField(resolved) : null;
+  if (consent) params.set(consent.name, consent.value);
   if (resolved.honeypotField) params.set(resolved.honeypotField, "");
 
   if (resolved.type === "mailchimp") {

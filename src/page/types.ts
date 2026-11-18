@@ -120,6 +120,17 @@ export interface FormResolved {
   encoding: "form" | "json";
   /** Names to send each value under. `consent: null`: the service takes no consent field. */
   fieldNames: { email: string; name: string; consent: string | null };
+  /**
+   * What a ticked consent box sends under `fieldNames.consent`: `"Y"` for a
+   * Mailchimp marketing permission (`gdpr[<id>]`), `"yes"` for a webhook.
+   * `null`: no consent field is sent (Mentra #5080).
+   */
+  consentValue?: string | null;
+  /**
+   * `hubspot` only: the v3 submit body's `legalConsentOptions`, sent when the
+   * box is ticked; `null` when the form maps no subscription type (Mentra #5080).
+   */
+  legalConsentOptions?: Record<string, unknown> | null;
   /** The hidden bot-trap input's name. */
   honeypotField: string;
 }

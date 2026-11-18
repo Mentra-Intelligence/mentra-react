@@ -19,6 +19,7 @@ import type {
 import { htmlToText, str, strList, list } from "./util";
 import { httpsUrl, mediaFrame, videoFigure, videoNeedsMotionCheck } from "./media";
 import { MotionVideo } from "./motion";
+import { formConsentField } from "./form";
 
 // ---------------------------------------------------------------- content
 
@@ -525,7 +526,7 @@ export function FormBlock({ block, content }: Props<FormContent>) {
   const heading = str(content.heading);
   const description = str(content.description);
   const consent = str(content.consentText);
-  const consentName = typeof r.fieldNames.consent === "string" ? r.fieldNames.consent : undefined;
+  const consentField = formConsentField(r);
   return (
     <section className="mentra-block mentra-block-form">
       <form
@@ -551,7 +552,7 @@ export function FormBlock({ block, content }: Props<FormContent>) {
         </div>
         {consent && (
           <label>
-            <input type="checkbox" name={consentName} value={consentName ? "yes" : undefined} required />
+            <input type="checkbox" name={consentField?.name} value={consentField?.value} required />
             <span>{consent}</span>
           </label>
         )}
