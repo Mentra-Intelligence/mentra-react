@@ -174,6 +174,31 @@ describe("MentraPage", () => {
     expect(out).toContain("<p><b>Hi</b></p>");
   });
 
+  describe("empty rich_text", () => {
+    const sanitizeHtml = (h: string) => h;
+    const EMPTY = ["<p></p>", "<p>&nbsp;</p>", "<p>Start typing your content here...</p>", " <p> &nbsp; <br></p> "];
+
+    for (const value of EMPTY) {
+      it(`renders nothing for ${JSON.stringify(value)}, with or without a sanitiser`, () => {
+        const p = page([block("rich_text", { html: value })]);
+        expect(html(p)).not.toContain("mentra-block-rich-text");
+        expect(html(p, { sanitizeHtml })).not.toContain("mentra-block-rich-text");
+      });
+    }
+
+    it("still renders media-only markup with a sanitiser", () => {
+      const out = html(page([block("rich_text", { html: '<p><img src="https://cdn.test/a.png"></p>' })]), { sanitizeHtml });
+      expect(out).toContain("mentra-block-rich-text");
+      expect(out).toContain('<img src="https://cdn.test/a.png">');
+    });
+
+    it("still renders ordinary text, with or without a sanitiser", () => {
+      const p = page([block("rich_text", { html: "<p>Hello</p>" })]);
+      expect(html(p)).toContain("<p>Hello</p>");
+      expect(html(p, { sanitizeHtml })).toContain("<p>Hello</p>");
+    });
+  });
+
   describe("video and embed", () => {
     const attrs = (out: string) => {
       const tag = out.match(/<iframe[^>]*>/)?.[0] ?? "";
