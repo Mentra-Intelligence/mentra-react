@@ -2,17 +2,17 @@
  * Default components for every page block type, and their content types.
  *
  * The contract is Mentra's `docs/page-block-content-schema.md` (#3894).
- * Adding a block type: add its content interface, its default component,
- * and one entry in `defaultBlocks` here; fields of its own in `resolved`
- * go on `PageBlock` in `types.ts`.
+ * Register each block's content interface and component here. Fields of its
+ * own in `resolved` go on `PageBlock` in `types.ts`.
  *
- * The defaults are unstyled semantic HTML with `mentra-block-*` class names.
+ * The defaults render semantic HTML with `mentra-block-*` class names.
  * Every one returns `null` rather than an empty shell when the fields the
  * contract marks render-required are missing, and skips `null` list entries.
  */
 import type { CSSProperties, ReactNode } from "react";
 import { MentraContent } from "../MentraContent";
 import type { TipTapNode } from "../types";
+import { DataBars, type DataBarsContent } from "../DataBars";
 import type {
   BlockComponent, BlockProps, DynamicItem, FormResolved, LinkValue, PageBlock, PageRenderContext,
 } from "./types";
@@ -20,6 +20,10 @@ import { htmlToText, str, strList, list } from "./util";
 import { httpsUrl, mediaFrame, videoFigure, videoNeedsMotionCheck } from "./media";
 import { MotionVideo } from "./motion";
 import { formConsentField } from "./form";
+import { TableBlock, type TableContent } from "./table";
+
+export { TableBlock } from "./table";
+export type { TableCell, TableContent } from "./table";
 
 // ---------------------------------------------------------------- content
 
@@ -34,7 +38,8 @@ export interface PricingItem {
   /** Layout hint: highlight this plan. */
   popular?: boolean;
 }
-export interface Column { id?: string; blocks?: unknown[] }
+export type SurfaceStyle = "default" | "bordered" | "tinted";
+export interface Column { id?: string; blocks?: unknown[]; surfaceStyle?: SurfaceStyle | null }
 
 export interface HeroContent {
   heading: string; subheading?: string; ctaText?: string; ctaLink?: LinkValue | null;
@@ -55,7 +60,7 @@ export interface DynamicHeroContent {
   secondaryCtaText?: string; secondaryCtaLink?: LinkValue | null;
   alignment?: "left" | "center" | "right"; overlayOpacity?: number | null; height?: string;
 }
-export interface RichTextContent { html: string }
+export interface RichTextContent { html: string; surfaceStyle?: SurfaceStyle | null }
 export interface ImageContent { url: string; alt?: string }
 export interface VideoContent {
   url: string; title?: string; poster?: string | null; captionsUrl?: string | null;
@@ -142,6 +147,11 @@ const GRID_TEMPLATES: Record<string, string> = {
   "1-2": "1fr 2fr",
   "2-1": "2fr 1fr",
 };
+
+/** Explicit surfaces opt into the companion stylesheet. Default keeps its markup. */
+function surfaceStyle(value: unknown): "bordered" | "tinted" | undefined {
+  return value === "bordered" || value === "tinted" ? value : undefined;
+}
 
 // ---------------------------------------------------------------- defaults
 
@@ -244,10 +254,12 @@ function isEmptyRichText(html: string): boolean {
 export function RichTextBlock({ content, context }: Props<RichTextContent>) {
   const html = str(content.html);
   if (!html || isEmptyRichText(html)) return null;
+  const surface = surfaceStyle(content.surfaceStyle);
   if (context.sanitizeHtml) {
     return (
       <div
         className="mentra-block mentra-block-rich-text"
+        data-surface-style={surface}
         dangerouslySetInnerHTML={{ __html: context.sanitizeHtml(html) }}
       />
     );
@@ -256,7 +268,7 @@ export function RichTextBlock({ content, context }: Props<RichTextContent>) {
   const text = htmlToText(html);
   if (!text) return null;
   return (
-    <div className="mentra-block mentra-block-rich-text">
+    <div className="mentra-block mentra-block-rich-text" data-surface-style={surface}>
       {text.split(/\n{2,}/).map((para, i) => <p key={i}>{para}</p>)}
     </div>
   );
@@ -403,19 +415,25 @@ export function ColumnsBlock({ content, context }: Props<ColumnsContent>) {
   const layout = str(content.layout);
   const template = (layout && Object.prototype.hasOwnProperty.call(GRID_TEMPLATES, layout) && GRID_TEMPLATES[layout])
     || `repeat(${columns.length}, 1fr)`;
+  const hasSurface = columns.some((col) => surfaceStyle(col.surfaceStyle));
   return (
     <div
       className="mentra-block mentra-block-columns"
       data-layout={layout}
-      style={{ display: "grid", gridTemplateColumns: template }}
+      data-column-surfaces={hasSurface ? "" : undefined}
+      style={{ display: "grid", gridTemplateColumns: hasSurface ? `var(--mentra-visual-columns, ${template})` : template }}
     >
       {columns.map((col, i) => (
-        <div key={str(col.id) ?? i} className="mentra-block-column">
+        <div key={str(col.id) ?? i} className="mentra-block-column" data-surface-style={surfaceStyle(col.surfaceStyle)}>
           {context.renderBlocks(col.blocks)}
         </div>
       ))}
     </div>
   );
+}
+
+export function DataBarsBlock({ content }: Props<DataBarsContent>) {
+  return <DataBars content={content} className="mentra-block mentra-block-data-bars" />;
 }
 
 /** The item list `dynamic_content` and `related_content` share. */
@@ -565,7 +583,7 @@ export function FormBlock({ block, content }: Props<FormContent>) {
 
 // ---------------------------------------------------------------- registry
 
-/** The default component for every block type in the #3894 contract. */
+/** Default components for the block types this package supports. */
 export const defaultBlocks = {
   hero: HeroBlock,
   dynamic_hero: DynamicHeroBlock,
@@ -579,6 +597,8 @@ export const defaultBlocks = {
   pricing: PricingBlock,
   cta: CtaBlock,
   columns: ColumnsBlock,
+  table: TableBlock,
+  data_bars: DataBarsBlock,
   dynamic_content: DynamicContentBlock,
   content_body: ContentBodyBlock,
   meta_info: MetaInfoBlock,
@@ -604,6 +624,8 @@ export interface BlockContentMap {
   pricing: PricingContent;
   cta: CtaContent;
   columns: ColumnsContent;
+  table: TableContent;
+  data_bars: DataBarsContent;
   dynamic_content: DynamicContentContent;
   content_body: ContentBodyContent;
   meta_info: MetaInfoContent;

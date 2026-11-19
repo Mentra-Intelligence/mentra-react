@@ -153,9 +153,9 @@ export interface PageResponse {
 }
 
 /**
- * The page theme. Every value is optional; the default blocks are unstyled and
- * only expose these as CSS custom properties on the page wrapper
- * (`--mentra-color-primary`, `--mentra-font-heading`, …) for the site's own CSS.
+ * The page theme. The renderer exposes each optional value as a CSS custom
+ * property on the page wrapper (`--mentra-color-primary`,
+ * `--mentra-font-heading`, …) for the companion stylesheet or the site's CSS.
  *
  * The roles follow Mentra's brand profile (colours by role, heading/body fonts,
  * #3973; shape tokens, #3974), so a theme built from the tenant's brand tokens
