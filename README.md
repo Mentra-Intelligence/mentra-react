@@ -142,7 +142,7 @@ const Hero: BlockComponent<BlockContentMap["hero"]> = ({ content, context }) => 
 | `contentProps` | `{}` | Overrides forwarded to `MentraContent` for article bodies. |
 | `theme` | `{}` | Colours, fonts and shape, exposed as CSS variables (`--mentra-color-primary`, `--mentra-font-heading`, `--mentra-radius`, …). |
 
-Block types: `hero` `dynamic_hero` `rich_text` `image` `video` `embed` `features_grid`
+Block types: `hero` `dynamic_hero` `rich_text` `image` `gallery` `video` `embed` `features_grid`
 `testimonials` `faq` `pricing` `cta` `columns` `dynamic_content`
 `content_body` `meta_info` `context_navigation` `related_content` `form`. A block whose type has no
 component is skipped, so a page using a type newer than your package version
@@ -183,6 +183,20 @@ in this order (Mentra #5038):
 If your pages live under another path, serve them at `/{slug}` too or rewrite
 the `href` in a block override. Links to anything other than a page carry no
 `url` and still go through `resolveLink`.
+
+### Gallery
+
+The Page Builder's **Image** control delivers a `gallery` block with one item
+in `content.items`. A one-image grid renders as a full-width figure with its
+caption. Galleries with several items render as a labeled list of figures, or
+as a responsive grid when you import `@mentra-intelligence/react/styles`.
+Carousel payloads show every image in the same grid. Supply a `gallery`
+override if your site wants carousel controls.
+
+Image links use the same resolution as other page links. Decorative images
+have empty alt text and their links use the caption or an accessible fallback
+name. Images load lazily and expose the delivered focal point as CSS
+`object-position` for sites that crop them.
 
 ### Video and embed blocks
 

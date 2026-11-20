@@ -33,12 +33,13 @@ const HOOK = {
 };
 const FORM = { heading: "Join", collectName: true, consentText: "I agree", buttonText: "Sign up", destination: { type: "webhook", url: HOOK.submitUrl } };
 
-/** One valid block of every contract type, with its expected default output. */
+/** One valid block of each supported type, with its expected default output. */
 const SAMPLES: Record<string, { block: PageBlock; expect: string }> = {
   hero: { block: block("hero", { heading: "Welcome", subheading: "Sub", ctaText: "Go", ctaLink: ext("https://x.test") }), expect: "<h1>Welcome</h1>" },
   dynamic_hero: { block: block("dynamic_hero", { heading: "Big", primaryCtaText: "Start", primaryCtaLink: ext("/start") }), expect: "<h1>Big</h1>" },
   rich_text: { block: block("rich_text", { html: "<p>Hello <b>world</b></p>" }), expect: "Hello world" },
   image: { block: block("image", { url: "https://cdn.test/a.png", alt: "A" }), expect: 'src="https://cdn.test/a.png"' },
+  gallery: { block: block("gallery", { items: [{ url: "https://cdn.test/b.png", alt: "B" }] }), expect: 'src="https://cdn.test/b.png"' },
   video: { block: block("video", { url: "https://cdn.test/clip.mp4" }, { resolved: MP4 }), expect: '<video src="https://cdn.test/clip.mp4"' },
   embed: { block: block("embed", { url: "https://youtu.be/dQw4w9WgXcQ" }, { resolved: YT }), expect: `src="${YT.embedUrl}"` },
   features_grid: { block: block("features_grid", { title: "F", features: [{ title: "Fast" }] }), expect: "<h3>Fast</h3>" },
@@ -56,7 +57,7 @@ const SAMPLES: Record<string, { block: PageBlock; expect: string }> = {
 };
 
 describe("MentraPage", () => {
-  it("has a default and a sample for every contract type", () => {
+  it("has a sample for each registered default", () => {
     expect(Object.keys(SAMPLES).sort()).toEqual(Object.keys(defaultBlocks).sort());
   });
 
@@ -105,6 +106,47 @@ describe("MentraPage", () => {
   it("skips null list entries", () => {
     const out = html(page([block("faq", { items: [null, { question: "Q", answer: "A" }, null] })]));
     expect(out.match(/<details>/g)).toHaveLength(1);
+  });
+
+  it("renders the Page Builder Image payload as one linked figure with its caption", () => {
+    const out = html(page([block("gallery", { layout: "grid", items: [{
+      url: "https://cdn.test/photo.jpg", alt: "Harbour", caption: "Day one", focalPoint: { x: 0.3, y: 0.6 },
+      link: { type: "internal", targetType: "page", targetId: "p2", slug: "visit", url: "/visit" },
+    }] })], { status: "published" }));
+
+    expect(out).toContain('<figure class="mentra-block mentra-block-gallery">');
+    expect(out).toContain('<a href="/visit"><img');
+    expect(out).toContain('alt="Harbour" loading="lazy" decoding="async"');
+    expect(out).toContain('width:100%');
+    expect(out).toContain('object-position:30% 60%');
+    expect(out).toContain("<figcaption>Day one</figcaption>");
+    expect(out).not.toContain("<ul");
+  });
+
+  it("gives a linked decorative image an accessible name", () => {
+    const item = { url: "/photo.jpg", decorative: true, alt: "Ignore this alt", link: {
+      type: "external", url: "https://example.com/", openInNewTab: true,
+    } };
+    const out = html(page([block("gallery", { items: [{ ...item, caption: "Visit the harbour" }] })]));
+    expect(out).toContain('target="_blank" rel="noopener noreferrer" aria-label="Visit the harbour"');
+    expect(out).toContain('alt=""');
+    expect(out).not.toContain("Ignore this alt");
+    expect(html(page([block("gallery", { items: [item] })]))).toContain('aria-label="Open link"');
+  });
+
+  it("keeps all safe carousel items in a labelled fallback grid", () => {
+    const out = html(page([block("gallery", { label: "Harbour views", layout: "carousel", autoplay: true, items: [
+      { url: "/first.jpg", alt: "First" },
+      null,
+      { url: "ftp://example.com/photo.jpg", alt: "Omit this image" },
+      { url: "/last.jpg", alt: "Last", link: ext("ftp://example.com/") },
+    ] })]));
+    expect(out).toContain('aria-label="Harbour views"');
+    expect(out).toContain('<ul class="mentra-gallery-grid" role="list">');
+    expect(out).toContain('alt="First"');
+    expect(out).toContain('alt="Last"');
+    expect(out).not.toContain("Omit this image");
+    expect(out).not.toContain("href=");
   });
 
   it("renders nothing for a block missing required fields", () => {
