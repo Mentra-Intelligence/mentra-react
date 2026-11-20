@@ -9,6 +9,15 @@ img[data-size="medium"] { max-width: 50%; }
 img[data-size="large"]  { max-width: 75%; }
 img[data-size="xl"]     { max-width: 100%; }
 
+:where(.mentra-gallery-grid) {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+  gap: var(--mentra-spacing, 1rem);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
 img[data-align="center"] { display: block; margin-left: auto; margin-right: auto; }
 img[data-align="left"]   { float: left; margin-right: 1em; }
 img[data-align="right"]  { float: right; margin-left: 1em; }

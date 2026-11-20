@@ -1,5 +1,5 @@
 /**
- * Default components for every page block type, and their content types.
+ * Default components for supported page blocks, and their content types.
  *
  * The contract is Mentra's `docs/page-block-content-schema.md` (#3894).
  * Adding a block type: add its content interface, its default component,
@@ -57,6 +57,22 @@ export interface DynamicHeroContent {
 }
 export interface RichTextContent { html: string }
 export interface ImageContent { url: string; alt?: string }
+export interface GalleryItem {
+  url: string | null;
+  alt?: string | null;
+  caption?: string | null;
+  decorative?: boolean | null;
+  link?: LinkValue | null;
+  focalPoint?: { x: number; y: number } | null;
+}
+export interface GalleryContent {
+  label?: string | null;
+  items?: (GalleryItem | null)[] | null;
+  layout?: "grid" | "carousel" | null;
+  autoplay?: boolean | null;
+  interval?: number | null;
+  loop?: boolean | null;
+}
 export interface VideoContent {
   url: string; title?: string; poster?: string | null; captionsUrl?: string | null;
   /** Hint: start playing on load, always muted. */
@@ -269,6 +285,50 @@ export function ImageBlock({ content, context }: Props<ImageContent>) {
     <figure className="mentra-block mentra-block-image">
       <img src={src} alt={str(content.alt) ?? ""} />
     </figure>
+  );
+}
+
+function galleryPosition(focalPoint: GalleryItem["focalPoint"]): string | undefined {
+  const { x, y } = focalPoint ?? {};
+  if (typeof x !== "number" || typeof y !== "number" || !(x >= 0 && x <= 1 && y >= 0 && y <= 1)) return undefined;
+  return `${x * 100}% ${y * 100}%`;
+}
+
+function GalleryFigure({ item, src, context, className }: {
+  item: GalleryItem; src: string; context: PageRenderContext; className?: string;
+}) {
+  const alt = item.decorative === true ? "" : str(item.alt) ?? "";
+  const caption = str(item.caption);
+  const link = linkAttrs(item.link, context);
+  const position = galleryPosition(item.focalPoint);
+  const image = <img src={src} alt={alt} loading="lazy" decoding="async"
+    style={{ display: "block", width: "100%", height: "auto", objectPosition: position }} />;
+  return (
+    <figure className={className}>
+      {link ? <a {...link} aria-label={alt ? undefined : caption ?? "Open link"}>{image}</a> : image}
+      {caption && <figcaption>{caption}</figcaption>}
+    </figure>
+  );
+}
+
+export function GalleryBlock({ content, context }: Props<GalleryContent>) {
+  const images = list<GalleryItem>(content.items).flatMap((item) => {
+    const src = context.resolveImage(str(item.url));
+    return src ? [{ item, src }] : [];
+  });
+  const [first] = images;
+  if (!first) return null;
+  const className = "mentra-block mentra-block-gallery";
+  if (images.length === 1 && content.layout !== "carousel") {
+    return <GalleryFigure {...first} context={context} className={className} />;
+  }
+  // A grid keeps every image readable even on a site with no client-side carousel.
+  return (
+    <section className={className} aria-label={str(content.label) ?? "Image gallery"}>
+      <ul className="mentra-gallery-grid" role="list">
+        {images.map((image, i) => <li key={i}><GalleryFigure {...image} context={context} /></li>)}
+      </ul>
+    </section>
   );
 }
 
@@ -565,12 +625,13 @@ export function FormBlock({ block, content }: Props<FormContent>) {
 
 // ---------------------------------------------------------------- registry
 
-/** The default component for every block type in the #3894 contract. */
+/** Default components for the block types this package supports. */
 export const defaultBlocks = {
   hero: HeroBlock,
   dynamic_hero: DynamicHeroBlock,
   rich_text: RichTextBlock,
   image: ImageBlock,
+  gallery: GalleryBlock,
   video: VideoBlock,
   embed: EmbedBlock,
   features_grid: FeaturesGridBlock,
@@ -596,6 +657,7 @@ export interface BlockContentMap {
   dynamic_hero: DynamicHeroContent;
   rich_text: RichTextContent;
   image: ImageContent;
+  gallery: GalleryContent;
   video: VideoContent;
   embed: EmbedContent;
   features_grid: FeaturesGridContent;
