@@ -112,8 +112,8 @@ const page = await res.json();
 <MentraPage page={page} sanitizeHtml={(html) => DOMPurify.sanitize(html)} />;
 ```
 
-Every block type has an unstyled default (semantic HTML, `mentra-block-*`
-classes). Replace any of them with `blocks`:
+Default components render semantic HTML with `mentra-block-*` classes.
+Replace any of them with `blocks`:
 
 ```tsx
 import { MentraPage, type BlockComponent, type BlockContentMap } from "@mentra-intelligence/react";
@@ -143,7 +143,7 @@ const Hero: BlockComponent<BlockContentMap["hero"]> = ({ content, context }) => 
 | `theme` | `{}` | Colours, fonts and shape, exposed as CSS variables (`--mentra-color-primary`, `--mentra-font-heading`, `--mentra-radius`, …). |
 
 Block types: `hero` `dynamic_hero` `rich_text` `image` `video` `embed` `features_grid`
-`testimonials` `faq` `pricing` `cta` `columns` `dynamic_content`
+`testimonials` `faq` `pricing` `cta` `columns` `table` `data_bars` `dynamic_content`
 `content_body` `meta_info` `context_navigation` `related_content` `form`. A block whose type has no
 component is skipped, so a page using a type newer than your package version
 still renders.
@@ -163,6 +163,36 @@ without one its text is rendered. A `hero` button renders only when it has a
 label and a link that resolves: a page link's `url`, or failing that what
 `resolveLink` returns. With neither there is no button. A `dynamic_hero` button
 with no resolvable link still renders as plain text.
+
+### Editorial styles
+
+Import the companion stylesheet for bordered and tinted surfaces, highlighted
+comparison columns, compact table layouts and themed data bars.
+
+```tsx
+import "@mentra-intelligence/react/styles";
+
+<MentraPage page={page} theme={{ colors: { primary: "#236857", accent: "#365ac0" } }} />;
+```
+
+- `rich_text.content.surfaceStyle` and `columns.content.columns[].surfaceStyle`
+  accept `bordered` or `tinted`. The renderer exposes these choices on their
+  wrappers as `data-surface-style`. Default or absent values keep standard
+  rendering. Styled column groups stack at narrow viewport widths.
+- `table.content.presentation: "comparison"` lays out labeled row cards in
+  narrow containers. An optional zero-based `highlightedColumn` identifies
+  the cells with `data-highlighted`. Both sizes use the same semantic table
+  and retain its caption, header relationships and values. Callers can use
+  `sanitizeHtml` to render inline cell formatting, or allow the default to
+  show equivalent plain text.
+- `data_bars` on pages and `dataBars` in article JSON accept the same payload.
+  Refer to [Data bars](#data-bars). The stylesheet applies to both renderers.
+
+The stylesheet uses inherited theme values. Set `--mentra-surface-border` or
+`--mentra-surface-tint` in your CSS to choose those colors explicitly. It also
+uses the page theme's primary and accent colors, spacing and radius. Imported
+styles are optional. Table headings, values, captions and source text still
+render when a site supplies its own styles.
 
 ### Page links
 
@@ -340,13 +370,13 @@ export const SignupForm: BlockComponent<BlockContentMap["form"]> = ({ block, con
 If your site sends a Content-Security-Policy, the destination host must be
 allowed in `form-action` (native form) or `connect-src` (`submitMentraForm`).
 
-A block type's content type, default component and registry entry live in
-`src/page/blocks.tsx`; a type whose `resolved` object has fields of its own
+A block type's content and renderer are registered in `src/page/blocks.tsx`.
+A type whose `resolved` object has fields of its own
 (like `form`) also adds them to `PageBlock` in `src/page/types.ts`.
 
 ## Supported Nodes
 
-`doc` `paragraph` `heading` `bulletList` `orderedList` `listItem` `blockquote` `codeBlock` `hardBreak` `horizontalRule` `image` `table` `tableRow` `tableHeader` `tableCell` `embed` `callout` `keyTakeaways` `pullQuote`
+`doc` `paragraph` `heading` `bulletList` `orderedList` `listItem` `blockquote` `codeBlock` `hardBreak` `horizontalRule` `image` `table` `tableRow` `tableHeader` `tableCell` `dataBars` `embed` `callout` `keyTakeaways` `pullQuote`
 
 A `table` puts its leading all-`tableHeader` rows in `<thead>` and the rest in
 `<tbody>`, as Mentra's published HTML does.
@@ -364,6 +394,19 @@ The article blocks match Mentra's published HTML: a `callout` renders
 `<h2>` title; `pullQuote` renders a `<figure>` with a `<blockquote>` and an
 optional `<figcaption>` attribution, linked to `sourceUrl` only when that URL is
 relative or http, https, mailto or tel.
+
+### Data bars
+
+The page `data_bars` block's `content` and article `dataBars` node's `attrs`
+use the exported `DataBarsContent` shape. Fill `rows` with labels and finite,
+non-negative numeric values and optional descriptions. Use one `unit` for a
+group. The optional `title` and `source` are plain text. An explicit `total`
+is shown separately from the bars' scale. The renderer exposes exact values
+in a table and uses decorative meters for the amounts.
+
+Articles store standard table and text children as a fallback. Existing
+article renderers can read those children. The `data_bars` page block requires
+this version or a site-supplied block renderer.
 
 ## Supported Marks
 

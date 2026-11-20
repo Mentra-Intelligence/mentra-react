@@ -1,7 +1,6 @@
 /**
- * Mentra Content CSS — companion styles for contentHtml rendering.
- * Handles image sizing and alignment from data-* attributes.
- * ZERO visual opinions (no fonts, colors, spacing).
+ * Optional styles for image layout, editorial surfaces, comparisons and bars.
+ * Editorial defaults are scoped to their renderer hooks and use theme roles.
  */
 
 img[data-size="small"]  { max-width: 25%; }
@@ -30,3 +29,161 @@ figure:has(> img[data-size="xl"])     { max-width: 100%; }
 figure:has(> img[data-align="center"]) { display: block; margin-left: auto; margin-right: auto; }
 figure:has(> img[data-align="left"])   { float: left; margin-right: 1em; }
 figure:has(> img[data-align="right"])  { float: right; margin-left: 1em; }
+
+:where(.mentra-block-rich-text, .mentra-block-column)[data-surface-style] {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  padding: var(--mentra-spacing, 1rem);
+  border-radius: var(--mentra-radius, 0.5rem);
+}
+
+:where(.mentra-block-rich-text, .mentra-block-column)[data-surface-style="bordered"] {
+  border: 1px solid var(--mentra-surface-border, color-mix(in srgb, currentColor 24%, transparent));
+}
+
+:where(.mentra-block-rich-text, .mentra-block-column)[data-surface-style="tinted"],
+:where(.mentra-block-table) [data-highlighted] {
+  background: var(--mentra-surface-tint, color-mix(in srgb, var(--mentra-color-primary, currentColor) 10%, transparent));
+  color: var(--mentra-color-text, inherit);
+}
+
+:where(.mentra-block-columns)[data-column-surfaces] {
+  gap: var(--mentra-spacing, 1rem);
+}
+
+@media (max-width: 40rem) {
+  :where(.mentra-block-columns)[data-column-surfaces] {
+    --mentra-visual-columns: minmax(0, 1fr);
+  }
+}
+
+:where(.mentra-block-table) {
+  overflow-x: auto;
+}
+
+:where(.mentra-block-table) table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+:where(.mentra-block-table) :where(th, td) {
+  padding: 0.625em 0.875em;
+  border-block-end: 1px solid var(--mentra-surface-border, color-mix(in srgb, currentColor 18%, transparent));
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+
+:where(.mentra-block-table)[data-presentation="comparison"] {
+  container-type: inline-size;
+}
+
+@container (max-width: 36rem) {
+  :where(.mentra-block-table[data-presentation="comparison"]) :where(table, caption, tbody) {
+    display: block;
+  }
+
+  :where(.mentra-block-table[data-presentation="comparison"]) thead:not(:focus-within) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  :where(.mentra-block-table[data-presentation="comparison"]) tbody tr {
+    display: grid;
+    margin-block-end: 0.75em;
+    border: 1px solid var(--mentra-surface-border, color-mix(in srgb, currentColor 18%, transparent));
+    border-radius: var(--mentra-radius, 0.5rem);
+  }
+
+  :where(.mentra-block-table[data-presentation="comparison"]) tbody tr > :last-child {
+    border-block-end: 0;
+  }
+
+  :where(.mentra-block-table[data-presentation="comparison"]) .mentra-table-column-label {
+    display: block;
+    font-size: 0.875em;
+    font-weight: 600;
+  }
+}
+
+:where(figure[data-data-bars]) {
+  padding: var(--mentra-spacing, 1rem);
+  border: 1px solid var(--mentra-surface-border, color-mix(in srgb, currentColor 18%, transparent));
+  border-radius: var(--mentra-radius, 0.5rem);
+}
+
+:where(figure[data-data-bars]) figcaption {
+  margin-block-end: 0.75em;
+  font-family: var(--mentra-font-heading, inherit);
+  font-size: 1.25em;
+  font-weight: 600;
+}
+
+:where(figure[data-data-bars]) table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+:where(figure[data-data-bars]) :where(th, td) {
+  text-align: start;
+  overflow-wrap: anywhere;
+  padding-block: 0.375em;
+}
+
+:where(figure[data-data-bars]) tr > :last-child:not([colspan]) {
+  text-align: end;
+}
+
+:where(figure[data-data-bars]) :where(thead, tfoot) {
+  border-block-end: 1px solid var(--mentra-surface-border, color-mix(in srgb, currentColor 18%, transparent));
+  font-weight: 600;
+}
+
+:where(figure[data-data-bars]) tfoot {
+  border-block-start: 1px solid var(--mentra-surface-border, color-mix(in srgb, currentColor 18%, transparent));
+  border-block-end: 0;
+}
+
+:where(figure[data-data-bars]) :where(small, meter) {
+  display: block;
+}
+
+:where(figure[data-data-bars]) small {
+  font-weight: 400;
+}
+
+:where(figure[data-data-bars]) meter {
+  appearance: none;
+  width: 100%;
+  height: 0.5em;
+  margin-block-end: 0.5em;
+  background: color-mix(in srgb, currentColor 15%, transparent);
+  border-radius: 0.25em;
+}
+
+:where(figure[data-data-bars]) meter::-webkit-meter-bar {
+  height: 100%;
+  background: transparent;
+  border: 0;
+}
+
+:where(figure[data-data-bars]) meter::-webkit-meter-optimum-value {
+  background: var(--mentra-color-accent, var(--mentra-color-primary, #315cc7));
+  border-radius: 0.25em;
+}
+
+:where(figure[data-data-bars]) meter::-moz-meter-bar {
+  background: var(--mentra-color-accent, var(--mentra-color-primary, #315cc7));
+  border-radius: 0.25em;
+}
+
+:where(figure[data-data-bars]) .mentra-data-bars-source {
+  margin-block: 0.75em 0;
+  font-size: 0.875em;
+}

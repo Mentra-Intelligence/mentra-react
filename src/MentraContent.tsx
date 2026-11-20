@@ -2,6 +2,7 @@ import React, { ReactNode } from "react";
 import type { TipTapNode, InternalLink, NodeRenderer, MarkRenderer, MentraContentProps } from "./types";
 import { safeHref, str } from "./page/util";
 import { IFRAME_REFERRER_POLICY, IFRAME_SANDBOX, iframeAllow, isSafeHttpsUrl, parseEmbedUrl } from "./embed";
+import { DataBars } from "./DataBars";
 
 const SIZE_STYLES: Record<string, React.CSSProperties> = {
   small:  { maxWidth: "25%" },
@@ -160,6 +161,7 @@ const defaultNodes: Record<string, NodeRenderer> = {
   tableRow:    ({ children }) => <tr>{children}</tr>,
   tableHeader: ({ children }) => <th>{children}</th>,
   tableCell:   ({ children }) => <td>{children}</td>,
+  dataBars:    ({ node, children }) => <DataBars content={node.attrs ?? {}} fallback={children} />,
   embed:       Embed,
   callout: ({ node, children }) => {
     const variant = textAttr(node, "variant");

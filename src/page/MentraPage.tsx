@@ -109,8 +109,8 @@ function isBlock(value: unknown): value is PageBlock {
 /**
  * Render a published page from `GET /v1/pages/{slug}`.
  *
- * Every block type has an unstyled default; pass `blocks` to replace any of
- * them. A block whose type has no component is skipped.
+ * Pass `blocks` to replace default components. A block whose type has no
+ * component is skipped.
  */
 export function MentraPage(props: MentraPageProps) {
   const {

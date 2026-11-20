@@ -4,6 +4,7 @@
  * @packageDocumentation
  */
 export { MentraContent } from "./MentraContent";
+export type { DataBarsContent, DataBarsRow } from "./DataBars";
 export type {
   TipTapNode, TipTapMark, ImageAttrs, InternalLink,
   NodeRenderer, MarkRenderer, MentraContentProps,

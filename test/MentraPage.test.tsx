@@ -48,6 +48,8 @@ const SAMPLES: Record<string, { block: PageBlock; expect: string }> = {
   pricing: { block: block("pricing", { items: [{ name: "Pro", price: "$9", features: ["A"], popular: true }] }), expect: 'data-popular="true"' },
   cta: { block: block("cta", { heading: "Join", buttonText: "Sign up", buttonLink: ext("https://x.test/s") }), expect: 'href="https://x.test/s"' },
   columns: { block: block("columns", { layout: "1-2", columns: [{ id: "c1", blocks: [block("hero", { heading: "Nested" })] }] }), expect: "<h1>Nested</h1>" },
+  table: { block: block("table", { rows: [[{ text: "Table value" }]] }), expect: "<td>Table value</td>" },
+  data_bars: { block: block("data_bars", { rows: [{ label: "People", value: 5 }] }), expect: '<meter min="0" max="5" value="5"' },
   dynamic_content: { block: block("dynamic_content", { title: "Latest" }, { resolved: { items: [{ id: "s1", title: "Post one", summary: "Sum" }] } }), expect: "Post one" },
   content_body: { block: block("content_body", { sourceType: "specific", contentId: "s1" }, { resolved: { item: { id: "s1", contentJson: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "Body text" }] }] } } } }), expect: "<p>Body text</p>" },
   meta_info: { block: block("meta_info", { showAuthor: true }), expect: "" },
