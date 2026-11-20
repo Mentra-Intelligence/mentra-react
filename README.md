@@ -142,11 +142,13 @@ const Hero: BlockComponent<BlockContentMap["hero"]> = ({ content, context }) => 
 | `contentProps` | `{}` | Overrides forwarded to `MentraContent` for article bodies. |
 | `theme` | `{}` | Colours, fonts and shape, exposed as CSS variables (`--mentra-color-primary`, `--mentra-font-heading`, `--mentra-radius`, …). |
 
-Block types: `hero` `dynamic_hero` `rich_text` `image` `gallery` `video` `embed` `features_grid`
+Block types: `hero` `dynamic_hero` `rich_text` `image` `video` `embed` `features_grid`
 `testimonials` `faq` `pricing` `cta` `columns` `dynamic_content`
 `content_body` `meta_info` `context_navigation` `related_content` `form`. A block whose type has no
 component is skipped, so a page using a type newer than your package version
 still renders.
+
+The `gallery` block renderer is described in [Gallery](#gallery).
 
 `hero` and `dynamic_hero` share one default layout (Mentra #5001). Either can
 carry a background image, which is decorative and darkened by `overlayOpacity`,
